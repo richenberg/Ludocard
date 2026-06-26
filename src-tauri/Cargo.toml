@@ -1,0 +1,28 @@
+[package]
+name = "ludocard-tauri"
+version = "0.1.0"
+edition = "2024"
+description = "Ludocard - A lightweight game save manager for PC (Ludosavi Fork)"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4.38", features = ["serde"] }
+tokio = { version = "1", features = ["rt"] }
+rfd = "0.15"
+reqwest = { version = "0.12.7", features = ["blocking", "rustls-tls", "json"], default-features = false }
+base64 = "0.22.1"
+opener = "0.7.2"
+ludusavi = { path = ".." }
+notify = { version = "6", features = ["macos_kqueue"] }
+notify-rust = "4"
+sysinfo = "0.36.0"
+log = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52.0"

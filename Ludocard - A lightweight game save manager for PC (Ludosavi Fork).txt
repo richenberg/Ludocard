@@ -1,0 +1,6 @@
+node ui/node_modules/@tauri-apps/cli/tauri.js dev
+
+
+
+
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 1420).OwningProcess -Force

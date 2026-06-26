@@ -1,10 +1,8 @@
 mod cli;
-mod gui;
 
 #[cfg(test)]
 mod testing;
 
-use self::gui::Flags;
 use ludusavi::{
     cloud,
     lang::{self, TRANSLATOR},
@@ -182,6 +180,22 @@ unsafe fn detach_console(debug: bool) {
     }
 }
 
+fn launch_ludocard() -> Result<(), std::io::Error> {
+    let mut exe_path = std::env::current_exe()?;
+    exe_path.pop();
+    #[cfg(target_os = "windows")]
+    exe_path.push("Ludocard.exe");
+    #[cfg(not(target_os = "windows"))]
+    exe_path.push("Ludocard");
+    
+    if exe_path.exists() {
+        std::process::Command::new(exe_path).spawn()?;
+        Ok(())
+    } else {
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Ludocard executable not found"))
+    }
+}
+
 fn main() {
     let mut failed = false;
     let args = cli::parse();
@@ -220,7 +234,7 @@ fn main() {
     };
 
     match args.sub {
-        None => {
+        None | Some(cli::parse::Subcommand::Gui { .. }) => {
             #[cfg(target_os = "windows")]
             if std::env::var(crate::prelude::ENV_DEBUG).is_err() {
                 unsafe {
@@ -228,25 +242,12 @@ fn main() {
                 }
             }
 
-            let flags = Flags {
-                update_manifest: !args.no_manifest_update,
-                custom_game: None,
-            };
-            gui::run(flags);
-        }
-        Some(cli::parse::Subcommand::Gui { custom_game }) => {
-            #[cfg(target_os = "windows")]
-            if std::env::var(crate::prelude::ENV_DEBUG).is_err() {
-                unsafe {
-                    detach_console(debug);
-                }
+            if let Err(e) = launch_ludocard() {
+                log::error!("Failed to launch Ludocard GUI: {e}");
+                eprintln!("Failed to launch Ludocard GUI: {e}");
+                eprintln!("Please execute 'Ludocard' directly or make sure it is in the same directory.");
+                failed = true;
             }
-
-            let flags = Flags {
-                update_manifest: !args.no_manifest_update,
-                custom_game,
-            };
-            gui::run(flags);
         }
         Some(sub) => {
             let gui = sub.gui();

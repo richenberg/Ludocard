@@ -1,0 +1,17 @@
+[[permission]]
+identifier = "allow-ludocard-commands"
+description = "Allow Ludocard custom commands"
+commands.allow = [
+  "get_games",
+  "scan_games",
+  "get_game_details",
+  "backup_game",
+  "restore_game",
+  "get_settings",
+  "save_settings",
+  "get_roots",
+  "add_root",
+  "remove_root",
+  "select_folder",
+  "open_game_folder"
+]

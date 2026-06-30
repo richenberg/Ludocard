@@ -5,6 +5,7 @@ use tauri::Manager;
 
 mod commands;
 pub mod watcher;
+pub mod emulator;
 
 fn main() {
     tauri::Builder::default()
@@ -127,6 +128,8 @@ fn main() {
             commands::toggle_backup_locked,
             commands::get_settings,
             commands::save_settings,
+            commands::save_language,
+            commands::get_translations,
             commands::get_roots,
             commands::add_root,
             commands::remove_root,
@@ -147,7 +150,23 @@ fn main() {
             commands::export_temp_ludocard_backup,
             commands::export_ludocard_backup,
             commands::delete_temp_file,
+            commands::save_backup_note,
+            commands::open_url,
+            commands::get_system_hardware_info,
+            commands::detect_game_config_files,
+            commands::create_preset_safety_backup,
+            commands::restore_preset_safety_backup,
+            commands::export_temp_ludocard_preset,
+            commands::save_local_preset,
+            commands::list_local_presets,
+            commands::delete_local_preset,
+            commands::apply_local_preset,
+            commands::export_local_preset_archive,
+            commands::add_emulator,
+            commands::remove_emulator,
+            commands::get_emulators,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ludocard");
 }
+

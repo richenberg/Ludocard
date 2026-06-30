@@ -12,7 +12,9 @@ export interface BackupVersion {
   sizeMB: number
   cloud: boolean
   locked?: boolean
+  note?: string
 }
+
 
 export interface Game {
   id: string
@@ -30,6 +32,7 @@ export interface Game {
   backups: BackupVersion[]
   installed: boolean
   lastPlayed?: string // ISO 8601 date string
+  emulator?: string
 }
 
 export const platformColors: Record<Platform, string> = {
@@ -38,6 +41,18 @@ export const platformColors: Record<Platform, string> = {
   GOG: "bg-violet-500/15 text-violet-300 border-violet-500/30",
   Emulador: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   Origin: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+}
+
+export const emulatorColors: Record<string, string> = {
+  Yuzu: "bg-red-500/15 text-red-300 border-red-500/30",
+  Ryujinx: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  Dolphin: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+  RetroArch: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  mGBA: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+  Citra: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  PCSX2: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  PPSSPP: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  Cemu: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
 }
 
 export const games: Game[] = [
@@ -238,3 +253,95 @@ export function formatSize(mb: number | undefined | null): string {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`
   return `${mb.toFixed(1)} MB`
 }
+
+export interface CommunityPreset {
+  id: string
+  gameName: string
+  gameId: string
+  title: string
+  fileName: string
+  r2Path: string
+  fileSize: number
+  description: string
+  authorName: string
+  userUuid: string
+  cpu: string
+  gpu: string
+  ram: string
+  isOfficial: boolean
+  upvotes: number
+  downvotes: number
+  reportsCount: number
+  downloadsCount: number
+  tags: string[]
+  createdAt: string
+}
+
+export const mockPresets: CommunityPreset[] = [
+  {
+    id: "preset-mock-1",
+    gameName: "Aether Frontier",
+    gameId: "aether-frontier",
+    title: "Potato Mode - Max Performance para PCs Fracos",
+    fileName: "aether-frontier_potato.ludocard",
+    r2Path: "presets/aether-frontier/potato.ludocard",
+    fileSize: 154200,
+    description: "Reduz a resolução interna das texturas, desativa sombras volumétricas e otimiza a fila de renderização. Ideal para rodar estável em placas integradas Vega/Intel HD.",
+    authorName: "LowSpecGamer",
+    userUuid: "mock-user-1",
+    cpu: "Intel Core i3-7100U",
+    gpu: "Intel HD Graphics 620",
+    ram: "8 GB",
+    isOfficial: false,
+    upvotes: 45,
+    downvotes: 2,
+    reportsCount: 0,
+    downloadsCount: 382,
+    tags: ["Performance", "Potato Mode", "Low Spec"],
+    createdAt: "2026-06-28T10:00:00Z"
+  },
+  {
+    id: "preset-mock-2",
+    gameName: "Aether Frontier",
+    gameId: "aether-frontier",
+    title: "Preset Otimizado Digital Foundry (Melhor Custo-Benefício)",
+    fileName: "aether-frontier_df.ludocard",
+    r2Path: "presets/aether-frontier/df.ludocard",
+    fileSize: 210500,
+    description: "Configuração baseada na curadoria oficial para equilibrar qualidade visual e performance. Mantém texturas e alcance de visão no Ultra enquanto reduz pós-processamento pesado.",
+    authorName: "PCGamingWiki Curation",
+    userUuid: "official-wiki",
+    cpu: "AMD Ryzen 5 3600",
+    gpu: "NVIDIA GeForce GTX 1660 Super",
+    ram: "16 GB",
+    isOfficial: true,
+    upvotes: 184,
+    downvotes: 3,
+    reportsCount: 0,
+    downloadsCount: 1450,
+    tags: ["Balanced", "Official", "Optimized"],
+    createdAt: "2026-06-25T14:30:00Z"
+  },
+  {
+    id: "preset-mock-3",
+    gameName: "Ironclad Legion",
+    gameId: "ironclad-legion",
+    title: "Foco Competitivo 144Hz+ (Shadows Off)",
+    fileName: "ironclad-legion_competitive.ludocard",
+    r2Path: "presets/ironclad-legion/competitive.ludocard",
+    fileSize: 84000,
+    description: "Desativa completamente sombras complexas e luzes dinâmicas. Remove o delay de input gráfico para máxima fluidez em telas de alta taxa de atualização.",
+    authorName: "ProGamerBR",
+    userUuid: "mock-user-2",
+    cpu: "AMD Ryzen 7 5800X",
+    gpu: "NVIDIA GeForce RTX 3070",
+    ram: "32 GB",
+    isOfficial: false,
+    upvotes: 29,
+    downvotes: 1,
+    reportsCount: 0,
+    downloadsCount: 120,
+    tags: ["Performance", "Competitive"],
+    createdAt: "2026-06-27T18:00:00Z"
+  }
+];

@@ -86,8 +86,13 @@ interface GameCardProps {
   onRestore: (title: string) => void
 }
 
+export function cleanGameTitle(title: string): string {
+  return title.replace(/^\[(Yuzu|Ryujinx|Dolphin|RetroArch|mGBA|Citra|PCSX2|PPSSPP|Cemu)\]\s+/, "");
+}
+
 function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: GameCardProps) {
   const status = statusConfig[game.status]
+  const cleanTitle = cleanGameTitle(game.title)
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50">
       <div className="absolute left-2 top-2 z-20 flex items-center gap-2">
@@ -95,7 +100,7 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
           checked={selected}
           onCheckedChange={(c) => onSelectedChange(c === true)}
           className="border-white/40 bg-black/60 backdrop-blur data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-          aria-label={`Selecionar ${game.title}`}
+          aria-label={`Selecionar ${cleanTitle}`}
         />
       </div>
 
@@ -103,12 +108,12 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
         <div className="relative aspect-[3/4] overflow-hidden">
           <img
             src={game.cover || "/placeholder.svg"}
-            alt={`Capa de ${game.title}`}
+            alt={`Capa de ${cleanTitle}`}
             className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/10 to-transparent" />
           <div className="absolute left-8 top-2">
-            <PlatformBadge platform={game.platform} />
+            <PlatformBadge platform={game.platform} emulator={game.emulator} />
           </div>
           <div className="absolute right-2 top-2 flex items-center gap-1.5 rounded-md bg-background/70 px-1.5 py-1 backdrop-blur">
             {game.cloudSync ? (
@@ -123,7 +128,7 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
 
       <div className="flex flex-col gap-1 p-3">
         <Link to={`/game/${game.id}`} className="truncate font-medium hover:text-primary">
-          {game.title}
+          {cleanTitle}
         </Link>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatSize(game.sizeMB)}</span>
@@ -157,27 +162,28 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
 
 function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: GameCardProps) {
   const status = statusConfig[game.status]
+  const cleanTitle = cleanGameTitle(game.title)
   return (
     <div className="group flex items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:border-primary/50 sm:gap-4">
       <Checkbox
         checked={selected}
         onCheckedChange={(c) => onSelectedChange(c === true)}
-        aria-label={`Selecionar ${game.title}`}
+        aria-label={`Selecionar ${cleanTitle}`}
         className="ml-1"
       />
       <Link to={`/game/${game.id}`} className="shrink-0">
         <img
           src={game.cover || "/placeholder.svg"}
-          alt={`Capa de ${game.title}`}
+          alt={`Capa de ${cleanTitle}`}
           className="h-16 w-12 rounded-md object-cover"
         />
       </Link>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <Link to={`/game/${game.id}`} className="truncate font-medium hover:text-primary">
-          {game.title}
+          {cleanTitle}
         </Link>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <PlatformBadge platform={game.platform} />
+          <PlatformBadge platform={game.platform} emulator={game.emulator} />
           <span className="inline-flex items-center gap-1">
             <status.icon className={cn("size-3.5", status.className)} />
             {status.label}

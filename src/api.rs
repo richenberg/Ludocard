@@ -44,6 +44,7 @@ impl Ludusavi {
 
     pub fn load() -> Result<Self, Error> {
         let config = Config::load()?;
+        crate::lang::TRANSLATOR.set_language(config.language);
         let manifest = Manifest::load()?;
 
         Ok(Self::new(config, manifest))

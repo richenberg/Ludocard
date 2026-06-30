@@ -358,6 +358,66 @@ fn translate_args(id: &str, args: &FluentArgs) -> String {
 }
 
 impl Translator {
+    pub fn get_translations(&self) -> std::collections::HashMap<String, String> {
+        let language = *LANGUAGE.lock().unwrap();
+        let ftl = match language {
+            Language::Arabic => include_str!("../lang/ar-SA.ftl"),
+            Language::ChineseSimplified => include_str!("../lang/zh-CN.ftl"),
+            Language::ChineseTraditional => include_str!("../lang/zh-TW.ftl"),
+            Language::Czech => include_str!("../lang/cs-CZ.ftl"),
+            Language::Dutch => include_str!("../lang/nl-NL.ftl"),
+            Language::English => include_str!("../lang/en-US.ftl"),
+            Language::Esperanto => include_str!("../lang/eo-UY.ftl"),
+            Language::Filipino => include_str!("../lang/fil-PH.ftl"),
+            Language::Finnish => include_str!("../lang/fi-FI.ftl"),
+            Language::French => include_str!("../lang/fr-FR.ftl"),
+            Language::German => include_str!("../lang/de-DE.ftl"),
+            Language::Italian => include_str!("../lang/it-IT.ftl"),
+            Language::Japanese => include_str!("../lang/ja-JP.ftl"),
+            Language::Korean => include_str!("../lang/ko-KR.ftl"),
+            Language::Norwegian => include_str!("../lang/no-NO.ftl"),
+            Language::Polish => include_str!("../lang/pl-PL.ftl"),
+            Language::PortugueseBrazilian => include_str!("../lang/pt-BR.ftl"),
+            Language::Russian => include_str!("../lang/ru-RU.ftl"),
+            Language::Spanish => include_str!("../lang/es-ES.ftl"),
+            Language::Swedish => include_str!("../lang/sv-SE.ftl"),
+            Language::Thai => include_str!("../lang/th-TH.ftl"),
+            Language::Turkish => include_str!("../lang/tr-TR.ftl"),
+            Language::Ukrainian => include_str!("../lang/uk-UA.ftl"),
+            Language::Vietnamese => include_str!("../lang/vi-VN.ftl"),
+        };
+
+        let mut translations = std::collections::HashMap::new();
+        let mut current_primary = String::new();
+
+        for line in ftl.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+
+            if line.starts_with(' ') || line.starts_with('\t') {
+                if trimmed.starts_with('.') {
+                    if let Some(pos) = trimmed.find('=') {
+                        let attr_name = trimmed[1..pos].trim();
+                        if !current_primary.is_empty() {
+                            let key = format!("{}.{}", current_primary, attr_name);
+                            translations.insert(key.clone(), translate(&key));
+                        }
+                    }
+                }
+            } else {
+                if let Some(pos) = trimmed.find('=') {
+                    let key = trimmed[..pos].trim();
+                    current_primary = key.to_string();
+                    translations.insert(current_primary.clone(), translate(&current_primary));
+                }
+            }
+        }
+
+        translations
+    }
+
     pub fn set_language(&self, language: Language) {
         set_language(Language::English);
         if language != Language::English {

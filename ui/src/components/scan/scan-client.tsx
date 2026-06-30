@@ -23,12 +23,18 @@ import { useLibrary } from "@/lib/library-context"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
+interface FrontendEmulator {
+  path: string;
+  name: string;
+}
+
 export function ScanClient() {
   const { games, loadGames, scanGames } = useLibrary()
   const [scanning, setScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [hasResults, setHasResults] = useState(false)
   const [folders, setFolders] = useState<{ id: string; path: string; type: string; games: number }[]>([])
+  const [emulators, setEmulators] = useState<FrontendEmulator[]>([])
   
   // Scanned games are games that are not backed up or have pending changes
   const scanResultsList = games.filter(g => g.status === "never" || g.status === "pending")
@@ -63,8 +69,23 @@ export function ScanClient() {
     }
   };
 
+  const loadEmulators = async () => {
+    if (!isTauri) {
+      setEmulators([]);
+      return;
+    }
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const list = await invoke<FrontendEmulator[]>("get_emulators");
+      setEmulators(list);
+    } catch (err) {
+      console.error("Failed to load emulators:", err);
+    }
+  };
+
   useEffect(() => {
     loadRoots();
+    loadEmulators();
   }, []);
 
   async function startScan() {
@@ -105,13 +126,88 @@ export function ScanClient() {
       const { invoke } = await import("@tauri-apps/api/core");
       const selected = await invoke<string | null>("select_folder");
       if (selected) {
-        await invoke("add_root", { path: selected });
-        toast.success("Pasta adicionada com sucesso!");
-        loadRoots();
+        const res = await invoke<{ success: boolean; is_emulator: boolean; emulator_name: string | null }>("add_root", { path: selected });
+        
+        if (res.is_emulator) {
+          const accept = window.confirm(
+            `A pasta selecionada pertence ao emulador ${res.emulator_name}.\n\nDeseja adicioná-la como um Emulador para rastrear os saves dos seus jogos automaticamente?`
+          );
+          if (accept) {
+            const id = toast.loading("Adicionando emulador e escaneando saves...");
+            try {
+              const count = await invoke<number>("add_emulator", { path: selected });
+              if (count > 0) {
+                toast.success(`Emulador ${res.emulator_name} adicionado com sucesso! ${count} jogo(s) detectado(s) na pasta de saves.`, { id });
+              } else {
+                toast.success(`Emulador ${res.emulator_name} adicionado! Nenhum save de jogo foi detectado na pasta.`, { id });
+              }
+              loadEmulators();
+              loadGames(true);
+            } catch (err) {
+              toast.error(`Falha ao adicionar emulador: ${err}`, { id });
+            }
+          }
+        } else if (res.success) {
+          toast.success("Pasta adicionada com sucesso!");
+          loadRoots();
+        }
       }
     } catch (err) {
       console.error("Failed to add folder root:", err);
       toast.error("Erro ao selecionar/adicionar pasta.");
+    }
+  }
+
+  async function addEmulator() {
+    if (!isTauri) {
+      setEmulators((prev) => [...prev, { path: "G:/05-Emuladores/CEMU", name: "Cemu" }]);
+      toast.success("Emulador adicionado com sucesso! (Mock)");
+      return;
+    }
+
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const path = await invoke<string | null>("select_folder");
+      if (path) {
+        const id = toast.loading("Adicionando emulador e escaneando saves...");
+        try {
+          const count = await invoke<number>("add_emulator", { path });
+          const emus = await invoke<FrontendEmulator[]>("get_emulators");
+          const added = emus.find((e) => e.path === path);
+          const name = added ? added.name : "Emulador";
+
+          if (count > 0) {
+            toast.success(`Emulador ${name} adicionado com sucesso! ${count} jogo(s) detectado(s) na pasta de saves.`, { id });
+          } else {
+            toast.success(`Emulador ${name} adicionado! Nenhum save de jogo foi detectado na pasta.`, { id });
+          }
+          loadEmulators();
+          loadGames(true);
+        } catch (err) {
+          toast.error(`Falha ao adicionar: ${err}`, { id });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to add emulator:", err);
+      toast.error("Erro ao selecionar/adicionar emulador.");
+    }
+  }
+
+  async function removeEmulator(path: string) {
+    if (!isTauri) {
+      setEmulators((prev) => prev.filter((x) => x.path !== path));
+      return;
+    }
+
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("remove_emulator", { path });
+      toast.success("Emulador removido");
+      loadEmulators();
+      loadGames(true);
+    } catch (err) {
+      console.error("Failed to remove emulator:", err);
+      toast.error("Erro ao remover emulador.");
     }
   }
 
@@ -225,6 +321,66 @@ export function ScanClient() {
           )}
         </CardContent>
       </Card>
+
+      {/* Emulators */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-base">Emuladores monitorados</CardTitle>
+            <CardDescription>
+              Diretórios de emuladores observados para busca automática de saves de console.
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={addEmulator}>
+            <Plus data-icon="inline-start" />
+            Adicionar emulador
+          </Button>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {emulators.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+              <FolderPlus className="size-8 text-muted-foreground/30 mb-2.5" />
+              <p className="text-sm font-medium">Nenhum emulador configurado.</p>
+              <p className="text-xs text-muted-foreground/80 mt-0.5">Clique em "Adicionar emulador" para importar saves de Switch, Wii, Wii U, GBA, PS2, etc.</p>
+            </div>
+          ) : (
+            emulators.map((emu) => (
+              <div
+                key={emu.path}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <Folder className="size-5 shrink-0 text-emerald-500" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-mono text-sm">{emu.path}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Saves integrados à biblioteca
+                  </span>
+                </div>
+                <PlatformBadge platform="Emulador" emulator={emu.name} />
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => removeEmulator(emu.path)}
+                  title="Remover emulador"
+                >
+                  <Trash2 />
+                  <span className="sr-only">Remover emulador</span>
+                </Button>
+              </div>
+            ))
+          )}
+          {emulators.length > 0 && (
+            <button
+              onClick={addEmulator}
+              className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+            >
+              <Plus className="size-4" />
+              Adicionar outro emulador
+            </button>
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* Results */}
       {hasResults && (

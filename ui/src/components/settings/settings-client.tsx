@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
+import { useI18n } from "@/lib/i18n"
 import {
   Settings2,
   CalendarClock,
@@ -31,8 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { PlatformBadge } from "@/components/platform-badge"
 import { games } from "@/lib/mock-data"
+import { useLibrary } from "@/lib/library-context"
+import { PlatformBadge } from "@/components/platform-badge"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
@@ -62,6 +64,7 @@ function SettingRow({
 }
 
 export function SettingsClient() {
+  const { t, language, setLanguage } = useI18n()
   const [scheduleMode, setScheduleMode] = useState<"interval" | "days">("interval")
   const [scheduledGames, setScheduledGames] = useState<Record<string, boolean>>(
     Object.fromEntries(games.filter((g) => g.autoBackup).map((g) => [g.id, true])),
@@ -83,6 +86,10 @@ export function SettingsClient() {
   const [supabaseUrl, setSupabaseUrl] = useState("")
   const [supabaseAnonKey, setSupabaseAnonKey] = useState("")
 
+  const { loadGames } = useLibrary()
+
+
+
   const loadSettings = async () => {
     if (!isTauri) return;
     try {
@@ -99,6 +106,8 @@ export function SettingsClient() {
         portable: boolean;
         supabaseUrl: string;
         supabaseAnonKey: string;
+        language: string;
+        hasSetLanguage: boolean;
       }>("get_settings");
       setBackupPath(s.backupPath);
       setRclonePath(s.rclonePath);
@@ -148,6 +157,8 @@ export function SettingsClient() {
             portable,
             supabaseUrl,
             supabaseAnonKey,
+            language,
+            hasSetLanguage: true,
           }
         });
         if (id) {
@@ -166,6 +177,8 @@ export function SettingsClient() {
           portable: boolean;
           supabaseUrl: string;
           supabaseAnonKey: string;
+          language: string;
+          hasSetLanguage: boolean;
         }>("get_settings");
         setBackupPath(s.backupPath);
         setRclonePath(s.rclonePath);
@@ -214,15 +227,15 @@ export function SettingsClient() {
       <TabsList>
         <TabsTrigger value="general">
           <Settings2 data-icon="inline-start" />
-          Geral
+          {t("ludocard-tab-general", "Geral")}
         </TabsTrigger>
         <TabsTrigger value="schedule">
           <CalendarClock data-icon="inline-start" />
-          Agendamento
+          {t("ludocard-tab-schedule", "Agendamento")}
         </TabsTrigger>
         <TabsTrigger value="notifications">
           <Bell data-icon="inline-start" />
-          Notificações
+          {t("ludocard-tab-notifications", "Notificações")}
         </TabsTrigger>
       </TabsList>
 
@@ -230,14 +243,14 @@ export function SettingsClient() {
       <TabsContent value="general">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Preferências gerais</CardTitle>
-            <CardDescription>Caminhos e comportamento básico do aplicativo.</CardDescription>
+            <CardTitle className="text-base">{t("ludocard-general-preferences", "Preferências gerais")}</CardTitle>
+            <CardDescription>{t("ludocard-general-preferences-desc", "Caminhos e comportamento básico do aplicativo.")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col">
             <SettingRow
               icon={Eye}
-              title="Monitor de Saves (File Watcher)"
-              description="Monitora alterações nos saves e faz backup automático quando o jogo fechar."
+              title={t("ludocard-file-watcher", "Monitor de Saves (File Watcher)")}
+              description={t("ludocard-file-watcher-desc", "Monitora alterações nos saves e faz backup automático quando o jogo fechar.")}
               control={
                 <Switch
                   checked={fileWatcher}
@@ -251,8 +264,8 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={Power}
-              title="Iniciar com o Windows"
-              description="Abre minimizado na bandeja do sistema ao ligar o PC."
+              title={t("ludocard-start-with-windows", "Iniciar com o Windows")}
+              description={t("ludocard-start-with-windows-desc", "Abre minimizado na bandeja do sistema ao ligar o PC.")}
               control={
                 <Switch
                   checked={startWithWindows}
@@ -266,8 +279,8 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={Settings2}
-              title="Executar na Bandeja (System Tray)"
-              description="Minimiza o aplicativo perto do relógio ao invés de fechar, mantendo o monitoramento em segundo plano."
+              title={t("ludocard-system-tray", "Executar na Bandeja (System Tray)")}
+              description={t("ludocard-system-tray-desc", "Minimiza o aplicativo perto do relógio ao invés de fechar, mantendo o monitoramento em segundo plano.")}
               control={
                 <Switch
                   checked={systemTray}
@@ -281,8 +294,8 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={HardDrive}
-              title="Modo Portátil (Portable Mode)"
-              description="Salva todas as configurações, manifestos e backups na pasta do executável (ideal para pendrives)."
+              title={t("ludocard-portable", "Modo Portátil (Portable Mode)")}
+              description={t("ludocard-portable-desc", "Salva todas as configurações, manifestos e backups na pasta do executável (ideal para pendrives).")}
               control={
                 <Switch
                   checked={portable}
@@ -293,8 +306,8 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={Monitor}
-              title="Tema"
-              description="Aparência da interface do aplicativo."
+              title={t("ludocard-theme", "Tema")}
+              description={t("ludocard-theme-desc", "Aparência da interface do aplicativo.")}
               control={
                 <Select defaultValue="dark">
                   <SelectTrigger className="w-32">
@@ -302,9 +315,9 @@ export function SettingsClient() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="dark">Escuro</SelectItem>
-                      <SelectItem value="light">Claro</SelectItem>
-                      <SelectItem value="system">Sistema</SelectItem>
+                      <SelectItem value="dark">{t("ludocard-theme-dark", "Escuro")}</SelectItem>
+                      <SelectItem value="light">{t("ludocard-theme-light", "Claro")}</SelectItem>
+                      <SelectItem value="system">{t("ludocard-theme-system", "Sistema")}</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -313,18 +326,26 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={Languages}
-              title="Idioma"
-              description="Idioma da interface."
+              title={t("ludocard-language", "Idioma")}
+              description={t("ludocard-language-desc", "Idioma da interface.")}
               control={
-                <Select defaultValue="pt">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
+                <Select value={language} onValueChange={(val) => setLanguage(val)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue>
+                      {language === "en-US" && "English"}
+                      {language === "pt-BR" && "Português (Brasil)"}
+                      {language === "es-ES" && "Español"}
+                      {language === "ru-RU" && "Русский"}
+                      {language === "zh-Hans" && "中文 (简体)"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="pt">Português</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="en-US">English</SelectItem>
+                      <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                      <SelectItem value="es-ES">Español</SelectItem>
+                      <SelectItem value="ru-RU">Русский</SelectItem>
+                      <SelectItem value="zh-Hans">中文 (简体)</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -336,9 +357,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <HardDrive className="size-4 text-primary" />
-                Diretório de Backup
+                {t("ludocard-backup-dir", "Diretório de Backup")}
               </span>
-              <span className="text-xs text-muted-foreground">Onde os saves dos seus jogos serão guardados localmente.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-backup-dir-desc", "Onde os saves dos seus jogos serão guardados localmente.")}</span>
               <Input
                 value={backupPath}
                 onChange={(e) => setBackupPath(e.target.value)}
@@ -351,9 +372,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <FileCode className="size-4 text-primary" />
-                Caminho do executável Rclone
+                {t("ludocard-rclone-path", "Caminho do executável Rclone")}
               </span>
-              <span className="text-xs text-muted-foreground">Caminho para o executável rclone usado no envio para nuvem.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-rclone-path-desc", "Caminho para o executável rclone usado no envio para nuvem.")}</span>
               <Input
                 value={rclonePath}
                 onChange={(e) => setRclonePath(e.target.value)}
@@ -366,9 +387,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Cloud className="size-4 text-primary" />
-                Pasta Remota na Nuvem
+                {t("ludocard-cloud-folder", "Pasta Remota na Nuvem")}
               </span>
-              <span className="text-xs text-muted-foreground">Nome da pasta remota para sincronizar os arquivos.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-cloud-folder-desc", "Nome da pasta remota para sincronizar os arquivos.")}</span>
               <Input
                 value={cloudPath}
                 onChange={(e) => setCloudPath(e.target.value)}
@@ -381,9 +402,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Cloud className="size-4 text-primary" />
-                Argumentos extras do Rclone
+                {t("ludocard-rclone-args", "Argumentos extras do Rclone")}
               </span>
-              <span className="text-xs text-muted-foreground">Comandos e flags opcionais passados diretamente ao rclone.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-rclone-args-desc", "Comandos e flags opcionais passados diretamente ao rclone.")}</span>
               <Input
                 value={rcloneArguments}
                 onChange={(e) => setRcloneArguments(e.target.value)}
@@ -396,9 +417,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Database className="size-4 text-primary" />
-                URL do Supabase (Repositório Comunitário)
+                {t("ludocard-supabase-url", "URL do Supabase (Repositório Comunitário)")}
               </span>
-              <span className="text-xs text-muted-foreground">URL da API do seu projeto Supabase para a aba de comunidade.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-supabase-url-desc", "URL da API do seu projeto Supabase para a aba de comunidade.")}</span>
               <Input
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
@@ -411,9 +432,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Key className="size-4 text-primary" />
-                Anon Key do Supabase
+                {t("ludocard-supabase-key", "Anon Key do Supabase")}
               </span>
-              <span className="text-xs text-muted-foreground">Chave pública (anon) usada para autenticação anônima nas tabelas.</span>
+              <span className="text-xs text-muted-foreground">{t("ludocard-supabase-key-desc", "Chave pública (anon) usada para autenticação anônima nas tabelas.")}</span>
               <Input
                 type="password"
                 value={supabaseAnonKey}
@@ -425,7 +446,7 @@ export function SettingsClient() {
 
             <Separator />
             <div className="flex justify-end pt-4">
-              <Button onClick={() => handleSaveSettings()}>Salvar Configurações</Button>
+              <Button onClick={() => handleSaveSettings()}>{t("ludocard-btn-save-settings", "Salvar Configurações")}</Button>
             </div>
           </CardContent>
         </Card>
@@ -585,6 +606,7 @@ export function SettingsClient() {
           </CardContent>
         </Card>
       </TabsContent>
+
     </Tabs>
   )
 }

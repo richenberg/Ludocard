@@ -259,3 +259,52 @@ new-version-available = Доступно обновление приложени
 custom-game-will-override = Пользовательская игра переопределяет элемент манифеста
 custom-game-will-extend = Пользовательская игра расширяет манифест
 operation-will-only-include-listed-games = Обработаются только перечисленные игры
+
+ludocard-library = Библиотека
+ludocard-scan-and-add = Сканирование и добавление
+ludocard-cloud-and-sync = Облако и синхронизация
+ludocard-save-share-hub = Save Share HUB
+ludocard-preset-share-hub = Preset Share HUB
+ludocard-settings = Настройки
+ludocard-support-project = Поддержать проект
+ludocard-library-status = Статус библиотеки
+ludocard-games = Игры
+ludocard-language = Язык
+ludocard-language-desc = Язык интерфейса.
+ludocard-sidebar-subtitle = Резервные копии сейвов
+ludocard-navigation = Навигация
+ludocard-stored-saves = Сохраненные файлы
+ludocard-pending-saves = Ожидающие
+ludocard-downloading-covers = Загрузка обложек...
+ludocard-settings-desc = Настройки и поведение приложения
+ludocard-dashboard-desc = Управляйте и защищайте сохранения ваших игр
+
+ludocard-file-watcher = Монитор сохранений (File Watcher)
+ludocard-file-watcher-desc = Отслеживает изменения сохранений и автоматически делает копию при закрытии игры.
+ludocard-start-with-windows = Запуск вместе с Windows
+ludocard-start-with-windows-desc = Запускается свернутым в системный трей при включении ПК.
+ludocard-system-tray = Запуск в системном трее (System Tray)
+ludocard-system-tray-desc = Сворачивает приложение в системный трей вместо закрытия, сохраняя фоновый мониторинг.
+ludocard-portable = Портативный режим (Portable Mode)
+ludocard-portable-desc = Сохраняет настройки, манифесты и резервные копии в папке приложения (идеально для флешек).
+ludocard-theme = Тема
+ludocard-theme-desc = Внешний вид интерфейса.
+ludocard-theme-dark = Темная
+ludocard-theme-light = Светлая
+ludocard-theme-system = Системная
+ludocard-backup-dir = Папка резервных копий
+ludocard-backup-dir-desc = Где будут храниться файлы резервных копий сохранений.
+
+ludocard-rclone-path = Путь к исполняемому файлу Rclone
+ludocard-rclone-path-desc = Путь к исполняемому файлу rclone, используемому для загрузки в облако.
+ludocard-cloud-folder = Удаленная папка в облаке
+ludocard-cloud-folder-desc = Имя удаленной папки для синхронизации файлов.
+ludocard-rclone-args = Дополнительные аргументы Rclone
+ludocard-rclone-args-desc = Необязательные команды и флаги, передаваемые непосредственно в rclone.
+ludocard-supabase-url = URL-адрес Supabase (Сообщество)
+ludocard-supabase-url-desc = URL-адрес API вашего проекта Supabase для вкладки сообщества.
+ludocard-supabase-key = Анонимный ключ Supabase (Anon Key)
+ludocard-supabase-key-desc = Публичный (анонимный) ключ, используемый для анонимной аутентификации в таблицах.
+ludocard-btn-save-settings = Сохранить настройки
+
+

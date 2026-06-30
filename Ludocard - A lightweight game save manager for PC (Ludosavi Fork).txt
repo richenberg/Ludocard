@@ -1,5 +1,8 @@
-npm run tauri dev
+cargo clean
 
+
+npm run tauri dev
+pnpm tauri dev
 node ui/node_modules/@tauri-apps/cli/tauri.js dev
 
 

@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Globe,
   Database,
-  Key,
   X,
   FileCheck,
 } from "lucide-react"
@@ -24,10 +23,36 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { useLibrary } from "@/lib/library-context"
+import { cn } from "@/lib/utils"
 
 const isTauri =
   typeof window !== "undefined" &&
   (window as any).__TAURI_INTERNALS__ !== undefined
+
+interface TagInfo {
+  name: string
+  description: string
+}
+
+const PREDEFINED_TAGS: TagInfo[] = [
+  { name: "100%", description: "Jogo 100% concluído com todas as conquistas, itens e colecionáveis liberados." },
+  { name: "DLC1", description: "Progresso focado ou pronto para iniciar a primeira DLC do jogo." },
+  { name: "DLC2", description: "Progresso focado ou pronto para iniciar a segunda DLC do jogo." },
+  { name: "New Game+", description: "Jogo pronto para iniciar ou já iniciado no modo Novo Jogo+." },
+  { name: "Vanilla", description: "Progresso do jogo base totalmente limpo, sem modificadores, mods ou trapaças." },
+  { name: "Modded", description: "Progresso obtido utilizando modificações (mods) que podem alterar a gameplay." },
+  { name: "Boss Prep", description: "Save posicionado estrategicamente logo antes de um chefe importante do jogo." },
+  { name: "Starter", description: "Save no início do jogo, com recursos acumulados ou com tutorial pulado." },
+  { name: "Clean Start", description: "Savegame logo após a criação de personagem ou introdução, pronto para jogar direto do início real." },
+  { name: "Mid-Game", description: "Save posicionado no meio da campanha principal (ótimo para quem perdeu o progresso)." },
+  { name: "Post-Game", description: "Campanha concluída, ideal para exploração de bosses secretos, conquistas pendentes ou atividades secundárias." },
+  { name: "OP Build", description: "Savegame focado em um personagem com equipamentos, nível e builds extremamente fortes (Overpowered)." },
+  { name: "Unlimited Cash", description: "Save focado em ter dinheiro, moedas ou recursos de upgrades máximos ou infinitos." },
+  { name: "All Collectibles", description: "Save com foco em conquistas secundárias e colecionáveis cansativos totalmente liberados." },
+  { name: "Hardcore", description: "Saves em dificuldades extremas ou com morte permanente ativada (sobrevivência extrema)." },
+  { name: "Speedrun Ready", description: "Save ideal para treinar trechos de speedruns ou posicionado nas rotas mais rápidas." },
+  { name: "Legit", description: "Progresso obtido de forma limpa, sem cheats, códigos de trapaça ou aproveitamento de bugs (glitches)." }
+]
 
 interface CommunityCheckpoint {
   id: string
@@ -41,6 +66,7 @@ interface CommunityCheckpoint {
   userUuid: string
   downloadsCount: number
   createdAt: string
+  tags?: string[]
 }
 
 type SortMode = "popular" | "recent" | "size"
@@ -63,15 +89,9 @@ function formatRelativeDate(isoDate: string): string {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-function slugify(name: string): string {
-  return name.toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
 export default function Community() {
   const { games } = useLibrary()
-  
+
   // Search, sort, checkpoints
   const [checkpoints, setCheckpoints] = useState<CommunityCheckpoint[]>([])
   const [loading, setLoading] = useState(true)
@@ -85,7 +105,7 @@ export default function Community() {
   const [clientUuid, setClientUuid] = useState("")
   const [isConfigured, setIsConfigured] = useState(false)
 
-  // Modal Share State
+  // Modal Share Checkpoint State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [selectedGameId, setSelectedGameId] = useState("")
   const [gameSearchQuery, setGameSearchQuery] = useState("")
@@ -95,8 +115,12 @@ export default function Community() {
   const [checkpointDesc, setCheckpointDesc] = useState("")
   const [authorName, setAuthorName] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [selectedUploadTags, setSelectedUploadTags] = useState<string[]>([])
 
-  // Load Settings and Checkpoints
+  // Modal Detail State
+  const [selectedDetailCheckpoint, setSelectedDetailCheckpoint] = useState<CommunityCheckpoint | null>(null)
+
+  // Load Settings and Data
   const loadConfigAndData = async () => {
     setLoading(true)
     if (!isTauri) {
@@ -104,6 +128,7 @@ export default function Community() {
       setSupabaseUrl("mock")
       setSupabaseAnonKey("mock")
       setIsConfigured(true)
+
       setCheckpoints([
         {
           id: "cp-mock-1",
@@ -112,11 +137,12 @@ export default function Community() {
           fileName: "elden-ring.ludocard",
           r2Path: "saves/elden-ring/cp1.ludocard",
           fileSize: 36000000,
-          description: "Savegame no New Game+ com todas as armas, cinzas de guerra e armaduras do jogo.",
+          description: "Savegame no New Game+ com todas as armas, cinzas de guerra e armaduras do jogo. Ideal para iniciar as DLCs direto com as melhores builds.",
           authorName: "TarnishedOne",
           userUuid: "mock-user",
           downloadsCount: 1450,
           createdAt: "2026-06-25T12:00:00Z",
+          tags: ["100%", "New Game+", "Vanilla"]
         }
       ])
       setLoading(false)
@@ -126,19 +152,18 @@ export default function Community() {
     try {
       const { invoke } = await import("@tauri-apps/api/core")
       const settings = await invoke<any>("get_settings")
-      console.log("Community: get_settings returned", settings)
       const uuid = await invoke<string>("get_client_uuid")
-      
+
       const url = settings.supabaseUrl || ""
       const key = settings.supabaseAnonKey || ""
-      
+
       setSupabaseUrl(url)
       setSupabaseAnonKey(key)
       setClientUuid(uuid)
 
       if (url && key) {
         setIsConfigured(true)
-        console.log("Community: Configured successfully. Fetching database...")
+
         // Fetch public saves from Supabase
         const response = await fetch(`${url}/rest/v1/public_saves?select=*`, {
           headers: {
@@ -148,7 +173,6 @@ export default function Community() {
         })
         if (response.ok) {
           const data = await response.json()
-          console.log("Community: Fetched checkpoints", data)
           const mapped = data.map((item: any) => ({
             id: item.id,
             gameName: item.game_name,
@@ -161,14 +185,11 @@ export default function Community() {
             userUuid: item.user_uuid,
             downloadsCount: Number(item.downloads_count || 0),
             createdAt: item.created_at,
+            tags: item.tags || []
           }))
           setCheckpoints(mapped)
-        } else {
-          console.error("Failed to fetch checkpoints from Supabase:", response.statusText)
-          toast.error("Erro ao carregar checkpoints do banco Supabase.")
         }
       } else {
-        console.warn("Community: url or key is empty", { url, key })
         setIsConfigured(false)
       }
     } catch (err) {
@@ -192,10 +213,11 @@ export default function Community() {
       setCheckpointTitle("")
       setCheckpointDesc("")
       setAuthorName("")
+      setSelectedUploadTags([])
     }
   }, [isShareModalOpen])
 
-  // Filter & Sort
+  // Filter & Sort for Checkpoints
   const filteredCheckpoints = checkpoints.filter((cp) => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
@@ -221,7 +243,7 @@ export default function Community() {
     return match?.cover || "/placeholder.svg"
   }
 
-  // Install Checkpoint
+  // Install Checkpoint Save
   const handleInstallCheckpoint = async (checkpoint: CommunityCheckpoint) => {
     if (!isConfigured) return
 
@@ -293,7 +315,7 @@ export default function Community() {
     }
   }
 
-  // Publish Checkpoint
+  // Publish Save Checkpoint
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedGameId || !selectedBackupId || !checkpointTitle) {
@@ -310,7 +332,6 @@ export default function Community() {
       const { invoke } = await import("@tauri-apps/api/core")
       const toastId = toast.loading("Comprimindo arquivos de save do backup com zstd...")
 
-      // Step 1: Pack the backup locally to a temporary .ludocard file
       const tempSaveInfo = await invoke<any>("export_temp_ludocard_backup", {
         gameTitle: selectedGame.title,
         gameId: selectedGame.id,
@@ -327,7 +348,6 @@ export default function Community() {
 
       toast.loading("Solicitando permissão de upload seguro na nuvem...", { id: toastId })
 
-      // Step 2: Get presigned upload URL from Edge Function
       const edgeRes = await fetch(`${supabaseUrl}/functions/v1/get-upload-url`, {
         method: "POST",
         headers: {
@@ -352,7 +372,6 @@ export default function Community() {
 
       toast.loading(`Fazendo upload seguro (${formatCompactSize(fileSize)})...`, { id: toastId })
 
-      // Step 3: Run Rust direct upload
       await invoke("upload_file_to_url", {
         filePath: tempZipPath,
         uploadUrl: uploadUrl,
@@ -360,7 +379,6 @@ export default function Community() {
 
       toast.loading("Publicando metadados no repositório público...", { id: toastId })
 
-      // Step 4: Write metadata record to public_saves table
       const dbRes = await fetch(`${supabaseUrl}/rest/v1/public_saves`, {
         method: "POST",
         headers: {
@@ -378,6 +396,7 @@ export default function Community() {
           description: checkpointDesc,
           author_name: authorName || "Anônimo",
           user_uuid: clientUuid,
+          tags: selectedUploadTags,
         })
       })
 
@@ -391,8 +410,7 @@ export default function Community() {
 
       toast.success("Checkpoint compartilhado na comunidade com sucesso!", { id: toastId })
       setIsShareModalOpen(false)
-      
-      // Clean up modal states
+
       setSelectedGameId("")
       setGameSearchQuery("")
       setIsGameDropdownOpen(false)
@@ -414,62 +432,16 @@ export default function Community() {
     }
   }
 
-  // Import local save dialog handler
-  const handleImportLocal = async () => {
-    if (!isTauri) return
-    try {
-      const { invoke } = await import("@tauri-apps/api/core")
-      const archivePath = await invoke<string | null>("open_ludocard_dialog")
-      if (!archivePath) return
-
-      // Read metadata to preview
-      const metadata = await invoke<any>("read_ludocard_metadata", {
-        archivePath,
-      })
-
-      const matchedGame = games.find(
-        (g) => g.title.toLowerCase() === metadata.gameTitle.toLowerCase()
-      )
-
-      if (!matchedGame?.savePath) {
-        toast.error(
-          `Jogo "${metadata.gameTitle}" correspondente ao arquivo não está instalado ou configurado na biblioteca.`
-        )
-        return
-      }
-
-      if (
-        confirm(
-          `Deseja instalar o save local "${metadata.checkpointTitle}" para ${metadata.gameTitle}?\n\nIsso substituirá seus saves atuais. O Seguro-Crash gerará um backup.`
-        )
-      ) {
-        const toastId = toast.loading("Restaurando save a partir do arquivo...")
-        await invoke("import_ludocard_save", {
-          archivePath,
-          targetSaveDir: matchedGame.savePath,
-        })
-        toast.success("Save importado com sucesso!", { id: toastId })
-      }
-    } catch (err) {
-      toast.error(`Falha ao importar save local: ${err}`)
-    }
-  }
-
   return (
     <AppShell
       title="Save Share HUB"
-      description="Compartilhe e baixe checkpoints de saves"
+      description="Compartilhe e baixe checkpoints de saves da comunidade"
       actions={
         isConfigured && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleImportLocal}>
-              Importar .ludocard
-            </Button>
-            <Button size="sm" onClick={() => setIsShareModalOpen(true)}>
-              <Upload data-icon="inline-start" />
-              Compartilhar Checkpoint
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => setIsShareModalOpen(true)}>
+            <Upload data-icon="inline-start" />
+            Compartilhar Checkpoint
+          </Button>
         )
       }
     >
@@ -496,31 +468,14 @@ export default function Community() {
       ) : (
         <div className="flex flex-col gap-6">
           {/* Stats banner */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 max-w-md">
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
               <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
                 <Globe className="size-4.5 text-primary" />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg font-bold leading-none">
-                  {checkpoints.length}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Checkpoints
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10">
-                <Download className="size-4.5 text-emerald-400" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-bold leading-none">
-                  {checkpoints.reduce((s, c) => s + c.downloadsCount, 0).toLocaleString("pt-BR")}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Downloads
-                </span>
+                <span className="text-lg font-bold leading-none">{checkpoints.length}</span>
+                <span className="text-[11px] text-muted-foreground">Checkpoints</span>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
@@ -533,17 +488,6 @@ export default function Community() {
                 </span>
                 <span className="text-[11px] text-muted-foreground">
                   Contribuidores
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10">
-                <Shield className="size-4.5 text-amber-400" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-bold leading-none">10 GB</span>
-                <span className="text-[11px] text-muted-foreground">
-                  Cota Cloud R2
                 </span>
               </div>
             </div>
@@ -584,12 +528,12 @@ export default function Community() {
                 onClick={() => setSortMode("size")}
               >
                 <Package className="size-3.5" data-icon="inline-start" />
-                Menor
+                Tamanho
               </Button>
             </div>
           </div>
 
-          {/* Checkpoint list */}
+          {/* Saves List */}
           {loading ? (
             <div className="flex h-[300px] flex-col items-center justify-center gap-2">
               <RefreshCw className="size-7 animate-spin text-primary" />
@@ -602,14 +546,10 @@ export default function Community() {
                   <Globe />
                 </EmptyMedia>
                 <EmptyTitle>
-                  {searchQuery
-                    ? "Nenhum checkpoint encontrado"
-                    : "Nenhum checkpoint disponível"}
+                  {searchQuery ? "Nenhum checkpoint encontrado" : "Nenhum checkpoint disponível"}
                 </EmptyTitle>
                 <EmptyDescription>
-                  {searchQuery
-                    ? "Tente buscar com outros termos."
-                    : "Seja o primeiro a compartilhar um save da comunidade!"}
+                  {searchQuery ? "Tente buscar com outros termos." : "Seja o primeiro a compartilhar um save da comunidade!"}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -621,7 +561,10 @@ export default function Community() {
                   className="group relative overflow-hidden transition-colors hover:border-primary/40"
                 >
                   <CardContent className="p-0">
-                    <div className="flex gap-3.5 p-4">
+                    <div
+                      className="flex gap-3.5 p-4 cursor-pointer hover:bg-muted/10 transition-colors"
+                      onClick={() => setSelectedDetailCheckpoint(cp)}
+                    >
                       {/* Game cover thumbnail */}
                       <div className="relative h-24 w-18 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
                         <img
@@ -639,16 +582,29 @@ export default function Community() {
                             <h3 className="truncate text-sm font-semibold leading-tight">
                               {cp.title}
                             </h3>
-                            <div className="mt-0.5 flex items-center gap-1.5">
-                              <Gamepad2 className="size-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {cp.gameName}
-                              </span>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <Gamepad2 className="size-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">
+                                  {cp.gameName}
+                                </span>
+                              </div>
                             </div>
+
+                            {/* Tags display in card */}
+                            {cp.tags && cp.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {cp.tags.map(tag => (
+                                  <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0.2 bg-primary/5 text-primary border-primary/20 select-none">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground mt-0.5">
                           {cp.description || "Nenhuma descrição detalhada fornecida."}
                         </p>
 
@@ -700,19 +656,16 @@ export default function Community() {
             </div>
           )}
 
-          {/* Info footer */}
+          {/* Info footer security */}
           <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
             <div className="flex items-start gap-3">
               <Shield className="mt-0.5 size-4 shrink-0 text-amber-400" />
               <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">
-                  Segurança Automática e Proteção
+                  Segurança Automática do Seguro-Crash e Sandbox
                 </span>
                 <span>
-                  Ao instalar um checkpoint da comunidade, o Ludocard
-                  automaticamente cria um <strong>backup de segurança</strong>{" "}
-                  (Seguro-Crash) do seu save atual antes de sobrescrever. Se algo
-                  der errado, é só restaurar o backup anterior. Além disso, os pacotes passam por um scanner de descompressão segura em Rust para impedir injeção de arquivos indesejados.
+                  Ao instalar um checkpoint da comunidade, o Ludocard automaticamente cria um backup de segurança do seu save atual antes de sobrescrever. Se algo der errado, é só restaurar o backup anterior no histórico.
                 </span>
               </div>
             </div>
@@ -720,10 +673,10 @@ export default function Community() {
         </div>
       )}
 
-      {/* Share Modal Dialog Overlay */}
+      {/* Share Checkpoint Modal Dialog Overlay */}
       {isShareModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-          <Card className="w-full max-w-lg shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
+          <Card className="w-full max-w-lg shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 !overflow-visible">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
               <div>
                 <CardTitle className="text-base">Compartilhar Checkpoint</CardTitle>
@@ -731,9 +684,9 @@ export default function Community() {
               </div>
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 onClick={() => setIsShareModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-4" />
               </Button>
@@ -743,7 +696,7 @@ export default function Community() {
                 {/* Searchable Game Selector */}
                 <div className="flex flex-col gap-1.5 relative">
                   <label className="text-xs font-semibold text-muted-foreground">Jogo do Save *</label>
-                  
+
                   {!selectedGameId ? (
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -757,7 +710,7 @@ export default function Community() {
                         onFocus={() => setIsGameDropdownOpen(true)}
                         className="pl-9"
                       />
-                      
+
                       {isGameDropdownOpen && (
                         <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-50 slide-in-from-top-1 duration-100">
                           {games
@@ -773,16 +726,12 @@ export default function Community() {
                                   type="button"
                                   onClick={() => {
                                     setSelectedGameId(g.id)
-                                    setGameSearchQuery(g.title)
                                     setIsGameDropdownOpen(false)
-                                    setSelectedBackupId("")
+                                    setGameSearchQuery("")
                                   }}
-                                  className="w-full text-left py-2 px-3 text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
+                                  className="w-full text-left py-2 px-3 text-xs hover:bg-accent hover:text-accent-foreground font-medium"
                                 >
-                                  {g.cover && (
-                                    <img src={g.cover} alt="" className="size-6 object-cover rounded" />
-                                  )}
-                                  <span>{g.title} <span className="text-[10px] text-muted-foreground">({g.platform})</span></span>
+                                  {g.title}
                                 </button>
                               ))
                           )}
@@ -790,133 +739,269 @@ export default function Community() {
                       )}
                     </div>
                   ) : (
-                    (() => {
-                      const selectedGame = games.find(g => g.id === selectedGameId)
-                      return (
-                        <div className="flex items-center justify-between p-3 rounded-lg border border-primary/20 bg-primary/5">
-                          <div className="flex items-center gap-3">
-                            {selectedGame?.cover && (
-                              <img src={selectedGame.cover} alt="" className="h-10 w-8.5 object-cover rounded border border-border" />
-                            )}
-                            <div>
-                              <div className="text-sm font-semibold">{selectedGame?.title}</div>
-                              <div className="text-xs text-muted-foreground">{selectedGame?.platform}</div>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedGameId("")
-                              setGameSearchQuery("")
-                              setSelectedBackupId("")
-                            }}
-                            className="text-xs text-muted-foreground hover:text-destructive"
-                          >
-                            Alterar
-                          </Button>
-                        </div>
-                      )
-                    })()
+                    <div className="flex items-center justify-between border border-border rounded-md px-3 py-2 bg-muted/40">
+                      <div className="flex items-center gap-2">
+                        <Gamepad2 className="size-4 text-primary" />
+                        <span className="text-sm font-semibold">{games.find(g => g.id === selectedGameId)?.title}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedGameId("")
+                          setSelectedBackupId("")
+                        }}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
                   )}
                 </div>
 
-                {/* Backup Version Selector */}
-                {selectedGameId && (() => {
-                  const selectedGame = games.find(g => g.id === selectedGameId)
-                  const hasBackups = selectedGame && selectedGame.backups && selectedGame.backups.length > 0
-                  
-                  return (
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="backup-select" className="text-xs font-semibold text-muted-foreground">Mídia de Progresso (Backup Realizado) *</label>
-                      
-                      {hasBackups ? (
-                        <>
-                          <select
-                            id="backup-select"
-                            value={selectedBackupId}
-                            onChange={(e) => setSelectedBackupId(e.target.value)}
-                            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                            required
-                          >
-                            <option value="" disabled>Selecione um backup do histórico local</option>
-                            {selectedGame.backups.map(b => (
-                              <option key={b.id} value={b.id}>
-                                {b.date} às {b.time} ({b.kind}) — {b.sizeMB.toFixed(2)} MB
-                              </option>
-                            ))}
-                          </select>
-                          <span className="text-[10px] text-muted-foreground">
-                            Escolha um ponto do seu histórico de backups para converter e compartilhar.
-                          </span>
-                        </>
-                      ) : (
-                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
-                          ⚠️ Você não possui backups deste jogo. Por favor, vá até a aba Biblioteca e faça um backup do seu save antes de tentar compartilhá-lo na comunidade.
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
+                {/* Backup version Selector */}
+                {selectedGameId && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Versão do Backup *</label>
+                    {games.find(g => g.id === selectedGameId)?.backups.length === 0 ? (
+                      <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 p-2.5 rounded-lg">
+                        Nenhum backup local feito para este jogo ainda. Crie um backup no card do jogo primeiro.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto border border-border/80 rounded-md bg-muted/10 p-2.5">
+                        {games
+                          .find(g => g.id === selectedGameId)
+                          ?.backups.map(b => {
+                            const isChecked = selectedBackupId === b.id
+                            return (
+                              <label
+                                key={b.id}
+                                className={cn(
+                                  "flex items-center justify-between gap-3 p-2 rounded-md border text-xs cursor-pointer select-none transition-colors",
+                                  isChecked
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "bg-background border-border hover:bg-muted/40"
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name="selected-backup"
+                                    checked={isChecked}
+                                    onChange={() => setSelectedBackupId(b.id)}
+                                    className="size-3.5 text-primary border-border bg-muted focus:ring-primary focus:ring-1"
+                                  />
+                                  <span className="font-semibold text-foreground">{b.date} às {b.time}</span>
+                                  <span className="text-[10px] text-muted-foreground">({b.kind})</span>
+                                </div>
+                                <span className="font-mono text-[10px] text-muted-foreground">{formatCompactSize(b.sizeMB * 1024 * 1024)}</span>
+                              </label>
+                            )
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="checkpoint-title" className="text-xs font-semibold text-muted-foreground">Título do Checkpoint *</label>
-                  <Input
-                    id="checkpoint-title"
-                    placeholder="Ex: Antes do Boss Final / Jogo 100% Liberado"
-                    value={checkpointTitle}
-                    onChange={(e) => setCheckpointTitle(e.target.value)}
-                    required
-                  />
+                <div className="grid gap-3.5 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="checkpoint-title" className="text-xs font-semibold text-muted-foreground">Título do Checkpoint *</label>
+                    <input
+                      id="checkpoint-title"
+                      type="text"
+                      placeholder="Ex: Antes da Malênia ou Level 100 100% Completo"
+                      value={checkpointTitle}
+                      onChange={(e) => setCheckpointTitle(e.target.value)}
+                      required
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="checkpoint-author" className="text-xs font-semibold text-muted-foreground">Nome do Autor</label>
+                    <input
+                      id="checkpoint-author"
+                      type="text"
+                      placeholder="Ex: Anônimo"
+                      value={authorName}
+                      onChange={(e) => setAuthorName(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="checkpoint-desc" className="text-xs font-semibold text-muted-foreground">Descrição / Notas do Progresso</label>
+                  <label htmlFor="checkpoint-desc" className="text-xs font-semibold text-muted-foreground">Descrição / Notas Adicionais</label>
                   <textarea
                     id="checkpoint-desc"
                     rows={3}
-                    placeholder="Detalhes sobre conquistas, nível de personagem, itens ou builds contidos no save..."
+                    placeholder="Descreva detalhes como build, nível, itens importantes ou o momento do progresso."
                     value={checkpointDesc}
                     onChange={(e) => setCheckpointDesc(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
+                {/* Predefined Tags Selector */}
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="author" className="text-xs font-semibold text-muted-foreground">Nome do Autor (opcional)</label>
-                  <Input
-                    id="author"
-                    placeholder="Anônimo"
-                    value={authorName}
-                    onChange={(e) => setAuthorName(e.target.value)}
-                  />
+                  <label className="text-xs font-semibold text-muted-foreground">Tags do Checkpoint</label>
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border border-border/80 p-2.5 rounded-md bg-muted/10">
+                    {PREDEFINED_TAGS.map(tag => {
+                      const active = selectedUploadTags.includes(tag.name)
+                      return (
+                        <button
+                          key={tag.name}
+                          type="button"
+                          onClick={() => {
+                            if (active) {
+                              setSelectedUploadTags(prev => prev.filter(t => t !== tag.name))
+                            } else {
+                              setSelectedUploadTags(prev => [...prev, tag.name])
+                            }
+                          }}
+                          title={tag.description}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] border font-medium transition-colors select-none",
+                            active
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-background border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {tag.name}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
+                {/* Action Buttons */}
                 <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => setIsShareModalOpen(false)}
-                    disabled={uploading}
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={uploading}>
-                    {uploading ? (
-                      <>
-                        <RefreshCw className="mr-2 size-3.5 animate-spin" />
-                        Subindo...
-                      </>
-                    ) : (
-                      <>
-                        <Upload data-icon="inline-start" />
-                        Publicar Checkpoint
-                      </>
-                    )}
+                  <Button
+                    type="submit"
+                    disabled={uploading || !selectedGameId || !selectedBackupId}
+                    className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
+                  >
+                    {uploading ? "Publicando..." : "Publicar Checkpoint"}
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Detail Checkpoint Modal overlay */}
+      {selectedDetailCheckpoint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+          <Card className="w-full max-w-md shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
+              <div>
+                <CardTitle className="text-base flex items-center gap-1">
+                  <Gamepad2 className="size-4.5 text-primary" />
+                  {selectedDetailCheckpoint.gameName}
+                </CardTitle>
+                <CardDescription className="text-xs">Visualizando metadados completos do checkpoint.</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedDetailCheckpoint(null)}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-4 flex flex-col gap-4.5">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted-foreground font-semibold">Título do Checkpoint:</span>
+                <span className="text-sm font-bold text-foreground leading-snug">{selectedDetailCheckpoint.title}</span>
+              </div>
+
+              {selectedDetailCheckpoint.description && (
+                <div className="flex flex-col gap-1 bg-muted/20 border border-border p-3 rounded-lg">
+                  <span className="text-[11px] text-muted-foreground font-semibold">Descrição do Progresso:</span>
+                  <div className="max-h-[160px] overflow-y-auto pr-1.5 scrollbar-thin">
+                    <p className="text-xs leading-relaxed text-muted-foreground mt-0.5 whitespace-pre-wrap">{selectedDetailCheckpoint.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedDetailCheckpoint.tags && selectedDetailCheckpoint.tags.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-semibold">Marcadores:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedDetailCheckpoint.tags.map(t => {
+                      const info = PREDEFINED_TAGS.find(pt => pt.name === t)
+                      return (
+                        <Badge
+                          key={t}
+                          variant="outline"
+                          title={info?.description}
+                          className="text-[10px] px-2 py-0.5 bg-primary/5 text-primary border-primary/20 select-none cursor-help"
+                        >
+                          {t}
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3.5 bg-muted/20 border border-border p-3.5 rounded-xl text-xs">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted-foreground">Tamanho Comprimido:</span>
+                  <span className="font-semibold text-foreground">{formatCompactSize(selectedDetailCheckpoint.fileSize)}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted-foreground">Total Downloads:</span>
+                  <span className="font-semibold text-foreground">{selectedDetailCheckpoint.downloadsCount.toLocaleString("pt-BR")}</span>
+                </div>
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <span className="text-muted-foreground">Enviado por:</span>
+                  <span className="font-semibold text-foreground">{selectedDetailCheckpoint.authorName}</span>
+                </div>
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <span className="text-muted-foreground">Enviado em:</span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(selectedDetailCheckpoint.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedDetailCheckpoint(null)}
+                >
+                  Fechar
+                </Button>
+                <Button
+                  disabled={importing === selectedDetailCheckpoint.id}
+                  onClick={() => {
+                    handleInstallCheckpoint(selectedDetailCheckpoint)
+                    setSelectedDetailCheckpoint(null)
+                  }}
+                  className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5"
+                >
+                  {importing === selectedDetailCheckpoint.id ? (
+                    <>
+                      <RefreshCw className="size-3.5 animate-spin" />
+                      Instalando...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="size-3.5" />
+                      Baixar & Instalar
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

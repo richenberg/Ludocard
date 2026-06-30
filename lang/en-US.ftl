@@ -296,3 +296,52 @@ custom-game-will-override = This custom game overrides a manifest entry
 custom-game-will-extend = This custom game extends a manifest entry
 
 operation-will-only-include-listed-games = This will only process the games that are currently listed
+
+ludocard-library = Library
+ludocard-scan-and-add = Scan & Add
+ludocard-cloud-and-sync = Cloud & Sync
+ludocard-save-share-hub = Save Share HUB
+ludocard-preset-share-hub = Preset Share HUB
+ludocard-settings = Settings
+ludocard-support-project = Support the Project
+ludocard-library-status = Library Status
+ludocard-games = Games
+ludocard-language = Language
+ludocard-language-desc = Interface language.
+ludocard-sidebar-subtitle = Save Backups
+ludocard-navigation = Navigation
+ludocard-stored-saves = Stored Saves
+ludocard-pending-saves = Pending
+ludocard-downloading-covers = Downloading covers...
+ludocard-settings-desc = App preferences and behavior
+ludocard-dashboard-desc = Manage and protect your game saves
+
+ludocard-file-watcher = File Watcher
+ludocard-file-watcher-desc = Monitors save changes and backs up automatically when the game closes.
+ludocard-start-with-windows = Start with Windows
+ludocard-start-with-windows-desc = Open minimized in the system tray when starting the PC.
+ludocard-system-tray = Run in System Tray
+ludocard-system-tray-desc = Minimize the application to the system tray near the clock instead of closing.
+ludocard-portable = Portable Mode
+ludocard-portable-desc = Save all configurations, manifests, and backups in the executable folder (ideal for USB drives).
+ludocard-theme = Theme
+ludocard-theme-desc = Interface appearance.
+ludocard-theme-dark = Dark
+ludocard-theme-light = Light
+ludocard-theme-system = System
+ludocard-backup-dir = Backup Directory
+ludocard-backup-dir-desc = Where game saves will be stored locally.
+
+ludocard-rclone-path = Rclone executable path
+ludocard-rclone-path-desc = Path to the rclone executable used for uploading to the cloud.
+ludocard-cloud-folder = Remote Cloud Folder
+ludocard-cloud-folder-desc = Name of the remote folder to synchronize the files.
+ludocard-rclone-args = Extra Rclone arguments
+ludocard-rclone-args-desc = Optional commands and flags passed directly to rclone.
+ludocard-supabase-url = Supabase URL (Community Repository)
+ludocard-supabase-url-desc = API URL of your Supabase project for the community tab.
+ludocard-supabase-key = Supabase Anon Key
+ludocard-supabase-key-desc = Public (anon) key used for anonymous authentication on tables.
+ludocard-btn-save-settings = Save Settings
+
+

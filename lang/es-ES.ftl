@@ -259,3 +259,52 @@ new-version-available = Una actualización de la aplicación está disponible: {
 custom-game-will-override = Este juego personalizado reemplaza una entrada de manifiesto
 custom-game-will-extend = Este juego personalizado extiende una entrada de manifiesto
 operation-will-only-include-listed-games = Esto solo procesará los juegos que se encuentran actualmente listados
+
+ludocard-library = Biblioteca
+ludocard-scan-and-add = Escanear y añadir
+ludocard-cloud-and-sync = Nube y sincronización
+ludocard-save-share-hub = Save Share HUB
+ludocard-preset-share-hub = Preset Share HUB
+ludocard-settings = Configuraciones
+ludocard-support-project = Apoyar el proyecto
+ludocard-library-status = Estado de la biblioteca
+ludocard-games = Juegos
+ludocard-language = Idioma
+ludocard-language-desc = Idioma de la interfaz.
+ludocard-sidebar-subtitle = Copias de seguridad de saves
+ludocard-navigation = Navegación
+ludocard-stored-saves = Saves almacenados
+ludocard-pending-saves = Pendientes
+ludocard-downloading-covers = Descargando portadas...
+ludocard-settings-desc = Preferencias y comportamiento de la aplicación
+ludocard-dashboard-desc = Administra y protege tus partidas guardadas
+
+ludocard-file-watcher = Monitor de Saves (File Watcher)
+ludocard-file-watcher-desc = Supervisa los cambios en los saves y realiza una copia de seguridad automática al cerrar el juego.
+ludocard-start-with-windows = Iniciar con Windows
+ludocard-start-with-windows-desc = Abre minimizado en la bandeja del sistema al encender el PC.
+ludocard-system-tray = Ejecutar en la bandeja (System Tray)
+ludocard-system-tray-desc = Minimiza la aplicación cerca del reloj en lugar de cerrarla, manteniendo el monitoreo en segundo plano.
+ludocard-portable = Modo portátil (Portable Mode)
+ludocard-portable-desc = Guarda todas las configuraciones, manifiestos y copias de seguridad en la carpeta del ejecutable (ideal para memorias USB).
+ludocard-theme = Tema
+ludocard-theme-desc = Apariencia de la interfaz del aplicativo.
+ludocard-theme-dark = Oscuro
+ludocard-theme-light = Claro
+ludocard-theme-system = Sistema
+ludocard-backup-dir = Directorio de copias de seguridad
+ludocard-backup-dir-desc = Dónde se guardarán localmente las partidas guardadas de tus juegos.
+
+ludocard-rclone-path = Ruta del ejecutable de Rclone
+ludocard-rclone-path-desc = Ruta al ejecutable rclone utilizado para subir a la nube.
+ludocard-cloud-folder = Carpeta remota en la nube
+ludocard-cloud-folder-desc = Nombre de la carpeta remota para sincronizar los archivos.
+ludocard-rclone-args = Argumentos adicionales de Rclone
+ludocard-rclone-args-desc = Comandos y flags opcionales que se pasan directamente a rclone.
+ludocard-supabase-url = URL de Supabase (Repositorio Comunitario)
+ludocard-supabase-url-desc = URL de la API de tu proyecto Supabase para la pestaña de comunidad.
+ludocard-supabase-key = Clave Anon de Supabase
+ludocard-supabase-key-desc = Clave pública (anon) utilizada para la autenticación anónima en las tablas.
+ludocard-btn-save-settings = Guardar configuraciones
+
+

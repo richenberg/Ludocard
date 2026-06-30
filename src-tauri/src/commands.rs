@@ -25,7 +25,9 @@ pub struct FrontendBackupVersion {
     pub size_mb: f64,
     pub cloud: bool,
     pub locked: bool,
+    pub note: Option<String>,
 }
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +49,7 @@ pub struct FrontendGame {
     pub backups_size_mb: f64,
     pub installed: bool,
     pub last_played: Option<String>,
+    pub emulator: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,6 +66,8 @@ pub struct FrontendSettings {
     pub portable: bool,
     pub supabase_url: String,
     pub supabase_anon_key: String,
+    pub language: String,
+    pub has_set_language: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -228,9 +233,108 @@ fn search_steam_app_id(client: &reqwest::blocking::Client, title: &str) -> Resul
     }
 }
 
+fn clean_emulator_prefix(title: &str) -> String {
+    let clean = title.replace("[Yuzu] ", "")
+        .replace("[Ryujinx] ", "")
+        .replace("[Dolphin] ", "")
+        .replace("[RetroArch] ", "")
+        .replace("[mGBA] ", "")
+        .replace("[Citra] ", "")
+        .replace("[PCSX2] ", "")
+        .replace("[PPSSPP] ", "")
+        .replace("[Cemu] ", "");
+    
+    let mut cleaned = clean;
+    if let Some(pos) = cleaned.find(" (") {
+        cleaned = cleaned[..pos].to_string();
+    }
+    cleaned
+}
+
+fn extract_title_id_from_path(path: &str) -> Option<String> {
+    let normalized = path.replace('\\', "/");
+    let parts: Vec<&str> = normalized.split('/').collect();
+    for part in parts {
+        let clean = part.trim();
+        if clean.len() == 16 && clean.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Some(clean.to_lowercase());
+        }
+        if clean.len() == 8 && clean.chars().all(|c| c.is_ascii_hexdigit()) {
+            if clean != "00050000" && clean != "0005000e" && clean != "0005000c" {
+                return Some(clean.to_lowercase());
+            }
+        }
+    }
+    None
+}
+
+fn clean_name_for_match(name: &str) -> String {
+    let mut clean = name.to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>();
+    
+    if clean.starts_with("thelegendofzelda") {
+        clean = clean.replace("thelegendofzelda", "tloz");
+    }
+    clean
+}
+
+fn resolve_wiiu_product_code(game_name: &str) -> Option<String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .ok()?;
+    let url = "https://raw.githubusercontent.com/Laf111/CEMU-Batch-Framework/master/resources/WiiU-Titles-Library.csv";
+    if let Ok(resp) = client.get(url).send() {
+        if resp.status().is_success() {
+            if let Ok(content) = resp.text() {
+                let name_clean = clean_name_for_match(game_name);
+                for line in content.lines() {
+                    let parts: Vec<&str> = if line.contains(';') {
+                        line.split(';').collect()
+                    } else {
+                        line.split(',').collect()
+                    };
+                    if parts.len() > 2 {
+                        let csv_name = parts[1].trim().trim_matches('"').trim();
+                        if clean_name_for_match(csv_name) == name_clean {
+                            let product_code = parts[2].trim().trim_matches('"').trim().to_lowercase();
+                            if product_code.is_empty() || product_code == "-" {
+                                continue;
+                            }
+                            let company_code = if parts.len() > 3 {
+                                parts[3].trim().trim_matches('"').trim().to_lowercase()
+                            } else {
+                                "1".to_string()
+                            };
+
+                            let game_code = product_code.split('-').last().unwrap_or(&product_code).to_uppercase();
+                            let pub_code = if company_code == "1" || company_code.is_empty() || company_code == "-" {
+                                "01".to_string()
+                            } else if company_code.len() >= 2 {
+                                company_code[company_code.len() - 2..].to_uppercase()
+                            } else {
+                                format!("0{}", company_code).to_uppercase()
+                            };
+
+                            let gametdb_id = format!("{}{}", game_code, pub_code);
+                            if gametdb_id.len() == 6 {
+                                return Some(gametdb_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 fn start_cover_downloads(
     app: &tauri::AppHandle,
-    games_to_download: Vec<(String, String, Option<u32>)>,
+    games_to_download: Vec<(String, String, Option<u32>, Option<String>)>,
 ) {
     if games_to_download.is_empty() {
         return;
@@ -277,13 +381,15 @@ fn start_cover_downloads(
 
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()
             .unwrap_or_default();
 
-        for (i, (slug, title, steam_id)) in games_to_download.iter().enumerate() {
+        for (i, (slug, title, steam_id, title_id)) in games_to_download.iter().enumerate() {
             let mut app_id = *steam_id;
+            let clean_title = clean_emulator_prefix(title);
             if app_id.is_none() {
-                if let Ok(search_res) = search_steam_app_id(&client, title) {
+                if let Ok(search_res) = search_steam_app_id(&client, &clean_title) {
                     app_id = Some(search_res);
                 }
             }
@@ -308,6 +414,169 @@ fn start_cover_downloads(
                                     let mut cache = COVER_CACHE.lock().unwrap();
                                     cache.insert(slug.clone(), base64_uri.clone());
                                     downloaded = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !downloaded {
+                // Try Libretro Thumbnails / GameTDB fallback for emulation console exclusives
+                let mut emulator_name = "";
+                let emulators_prefix = ["Yuzu", "Ryujinx", "Dolphin", "RetroArch", "mGBA", "Citra", "PCSX2", "PPSSPP", "Cemu"];
+                for emu in emulators_prefix {
+                    let prefix = format!("[{}] ", emu);
+                    if title.starts_with(&prefix) {
+                        emulator_name = emu;
+                        break;
+                    }
+                }
+
+                if !emulator_name.is_empty() {
+                    // Try Cemu (Wii U) GameTDB Cover logic
+                    if emulator_name == "Cemu" {
+                        if let Some(product_code) = resolve_wiiu_product_code(&clean_title) {
+                            for region in &["US", "EN", "JA"] {
+                                let url = format!("https://art.gametdb.com/wiiu/cover/{}/{}.jpg", region, product_code);
+                                if let Ok(resp) = client.get(&url).send() {
+                                    if resp.status().is_success() {
+                                        if let Ok(bytes) = resp.bytes() {
+                                            if bytes.len() > 1000 {
+                                                let file_path = covers_dir.join(format!("{}.jpg", slug));
+                                                if std::fs::write(&file_path, &bytes).is_ok() {
+                                                    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                                                    base64_uri = format!("data:image/jpeg;base64,{}", encoded);
+
+                                                    let mut cache = COVER_CACHE.lock().unwrap();
+                                                    cache.insert(slug.clone(), base64_uri.clone());
+                                                    downloaded = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Try Yuzu/Ryujinx (Switch) Tinfoil Cover scraping
+                    if (emulator_name == "Yuzu" || emulator_name == "Ryujinx") && !downloaded {
+                        if let Some(tid) = title_id {
+                            let url = format!("https://tinfoil.io/Title/{}", tid.to_lowercase());
+                            if let Ok(resp) = client.get(&url).send() {
+                                if resp.status().is_success() {
+                                    if let Ok(html) = resp.text() {
+                                        if let Some(pos) = html.find("og:image") {
+                                            if let Some(content_pos) = html[pos..].find("content=\"") {
+                                                if let Some(end_pos) = html[pos + content_pos + 9..].find('"') {
+                                                    let img_url = &html[pos + content_pos + 9..pos + content_pos + 9 + end_pos];
+                                                    if let Ok(img_resp) = client.get(img_url).send() {
+                                                        if img_resp.status().is_success() {
+                                                            if let Ok(bytes) = img_resp.bytes() {
+                                                                if bytes.len() > 1000 {
+                                                                    let file_path = covers_dir.join(format!("{}.png", slug));
+                                                                    if std::fs::write(&file_path, &bytes).is_ok() {
+                                                                        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                                                                        base64_uri = format!("data:image/png;base64,{}", encoded);
+
+                                                                        let mut cache = COVER_CACHE.lock().unwrap();
+                                                                        cache.insert(slug.clone(), base64_uri.clone());
+                                                                        downloaded = true;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to standard Libretro Named Boxarts exact match
+                    if !downloaded {
+                        let repo_name = match emulator_name {
+                            "Dolphin" => {
+                                if title.to_lowercase().contains("wii") {
+                                    Some("Nintendo_-_Wii")
+                                } else {
+                                    Some("Nintendo_-_GameCube")
+                                }
+                            }
+                            "PCSX2" => Some("Sony_-_PlayStation_2"),
+                            "mGBA" => Some("Nintendo_-_Game_Boy_Advance"),
+                            "Citra" => Some("Nintendo_-_Nintendo_3DS"),
+                            "PPSSPP" => Some("Sony_-_PlayStation_Portable"),
+                            "Cemu" => Some("Nintendo_-_Wii_U"),
+                            _ => None,
+                        };
+
+                        if let Some(repo) = repo_name {
+                            let github_title = clean_title.replace(" ", "%20");
+                            let libretro_url = format!(
+                                "https://raw.githubusercontent.com/libretro-thumbnails/{}/master/Named_Boxarts/{}.png",
+                                repo,
+                                github_title
+                            );
+
+                            if let Ok(resp) = client.get(&libretro_url).send() {
+                                if resp.status().is_success() {
+                                    if let Ok(bytes) = resp.bytes() {
+                                        if bytes.len() > 1000 {
+                                            let file_path = covers_dir.join(format!("{}.png", slug));
+                                            if std::fs::write(&file_path, &bytes).is_ok() {
+                                                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                                                base64_uri = format!("data:image/png;base64,{}", encoded);
+
+                                                let mut cache = COVER_CACHE.lock().unwrap();
+                                                cache.insert(slug.clone(), base64_uri.clone());
+                                                downloaded = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if !downloaded {
+                        let (supabase_url, supabase_anon_key) = load_supabase_settings(&app_data_dir);
+                        let edge_function_url = format!("{}/functions/v1/get-game-cover", supabase_url.trim_end_matches('/'));
+                        let req_payload = serde_json::json!({
+                            "gameTitle": clean_title
+                        });
+
+                        if let Ok(resp) = client.post(&edge_function_url)
+                            .header("apikey", &supabase_anon_key)
+                            .header("Authorization", format!("Bearer {}", supabase_anon_key))
+                            .json(&req_payload)
+                            .send() {
+                            if resp.status().is_success() {
+                                if let Ok(json_res) = resp.json::<serde_json::Value>() {
+                                    if let Some(cover_url) = json_res.get("coverUrl").and_then(|v| v.as_str()) {
+                                        if let Ok(img_resp) = client.get(cover_url).send() {
+                                            if img_resp.status().is_success() {
+                                                if let Ok(bytes) = img_resp.bytes() {
+                                                    if bytes.len() > 1000 {
+                                                        let file_path = covers_dir.join(format!("{}.jpg", slug));
+                                                        if std::fs::write(&file_path, &bytes).is_ok() {
+                                                            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                                                            base64_uri = format!("data:image/jpeg;base64,{}", encoded);
+
+                                                            let mut cache = COVER_CACHE.lock().unwrap();
+                                                            cache.insert(slug.clone(), base64_uri.clone());
+                                                            downloaded = true;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -515,6 +784,18 @@ fn get_latest_modified_time(save_path: &str) -> Option<String> {
     })
 }
 
+pub fn load_backup_note(app_data_dir: &Path, game_id: &str, backup_id: &str) -> Option<String> {
+    let config_path = app_data_dir.join("ludocard.json");
+    let content = std::fs::read_to_string(&config_path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let note = json.get("backup_notes")?
+        .get(game_id)?
+        .get(backup_id)?
+        .as_str()?
+        .to_string();
+    Some(note)
+}
+
 /// Build a FrontendGame from a combination of scan data, backup data, and cached scan info.
 fn build_frontend_game(
     app_data_dir: Option<&Path>,
@@ -552,6 +833,8 @@ fn build_frontend_game(
             let date_str = local_time.format("%d %b %Y").to_string();
             let time_str = local_time.format("%H:%M").to_string();
 
+            let note = app_data_dir.and_then(|dir| load_backup_note(dir, &slug, &b.name));
+
             backups_list.push(FrontendBackupVersion {
                 id: b.name.clone(),
                 date: date_str,
@@ -560,9 +843,11 @@ fn build_frontend_game(
                 size_mb: (b.size_bytes as f64) / (1024.0 * 1024.0),
                 cloud: api.config.cloud.synchronize,
                 locked: b.locked,
+                note,
             });
         }
     }
+
 
     // Sort backups: latest first
     backups_list.reverse();
@@ -578,7 +863,19 @@ fn build_frontend_game(
     // Determine platform from manifest metadata
     let game_meta = api.manifest.0.get(name);
     let mut platform = "Steam".to_string();
-    if let Some(meta) = game_meta {
+    let mut emulator = None;
+
+    if name.starts_with('[') {
+        let emulators_prefix = ["Yuzu", "Ryujinx", "Dolphin", "RetroArch", "mGBA", "Citra", "PCSX2", "PPSSPP", "Cemu"];
+        for emu in emulators_prefix {
+            let prefix = format!("[{}] ", emu);
+            if name.starts_with(&prefix) {
+                platform = "Emulador".to_string();
+                emulator = Some(emu.to_string());
+                break;
+            }
+        }
+    } else if let Some(meta) = game_meta {
         if meta.steam.id.is_some() {
             platform = "Steam".to_string();
         } else if meta.gog.id.is_some() {
@@ -638,6 +935,7 @@ fn build_frontend_game(
         backups_size_mb,
         installed,
         last_played,
+        emulator,
     }
 }
 
@@ -646,6 +944,7 @@ fn build_frontend_game(
 #[tauri::command]
 pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, String> {
     tokio::task::spawn_blocking(move || {
+        let _ = crate::emulator::heal_custom_game_paths();
         let api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
         let backups_output = api
@@ -660,13 +959,16 @@ pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Strin
             }
         }
 
-        // Collect all known game names from backups + scan cache
+        // Collect all known game names from backups + scan cache + custom games
         let mut all_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         for name in backups_output.games.keys() {
             all_names.insert(name.clone());
         }
         for name in cache.keys() {
             all_names.insert(name.clone());
+        }
+        for cg in &api.config.custom_games {
+            all_names.insert(cg.name.clone());
         }
 
         let mut frontend_games = Vec::new();
@@ -691,7 +993,13 @@ pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Strin
                         steam_id = Some(sid);
                     }
                 }
-                games_to_download.push((fg.id.clone(), name.clone(), steam_id));
+                let mut title_id = None;
+                if let Some(cg) = api.config.custom_games.iter().find(|g| g.name == *name) {
+                    if let Some(first_file) = cg.files.first() {
+                        title_id = extract_title_id_from_path(first_file);
+                    }
+                }
+                games_to_download.push((fg.id.clone(), name.clone(), steam_id, title_id));
             }
 
             frontend_games.push(fg);
@@ -713,6 +1021,24 @@ pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Strin
 #[tauri::command]
 pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, String> {
     tokio::task::spawn_blocking(move || {
+        let _ = crate::emulator::heal_custom_game_paths();
+        let app_data_dir = app.path().app_data_dir().ok();
+
+        // 1. Scan and register emulator saves first
+        if let Some(ref dir) = app_data_dir {
+            let emulators = load_emulators_setting(dir);
+            let mut all_saves = Vec::new();
+            for emu_path in emulators {
+                if let Some(emu_name) = crate::emulator::identify_emulator(Path::new(&emu_path)) {
+                    let detected = crate::emulator::scan_emulator_saves(&emu_name, &emu_path);
+                    all_saves.extend(detected);
+                }
+            }
+            if !all_saves.is_empty() {
+                let _ = crate::emulator::register_emulator_saves(all_saves);
+            }
+        }
+
         let mut api =
             Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
@@ -770,6 +1096,9 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
         for name in backups_output.games.keys() {
             all_names.insert(name.clone());
         }
+        for cg in &api.config.custom_games {
+            all_names.insert(cg.name.clone());
+        }
 
         let cache = SCAN_CACHE.lock().unwrap();
         let mut frontend_games = Vec::new();
@@ -795,7 +1124,13 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
                         steam_id = Some(sid);
                     }
                 }
-                games_to_download.push((fg.id.clone(), name.clone(), steam_id));
+                let mut title_id = None;
+                if let Some(cg) = api.config.custom_games.iter().find(|g| g.name == *name) {
+                    if let Some(first_file) = cg.files.first() {
+                        title_id = extract_title_id_from_path(first_file);
+                    }
+                }
+                games_to_download.push((fg.id.clone(), name.clone(), steam_id, title_id));
             }
 
             frontend_games.push(fg);
@@ -871,7 +1206,13 @@ pub async fn get_game_details(app: tauri::AppHandle, game_title: String) -> Resu
                     steam_id = Some(sid);
                 }
             }
-            start_cover_downloads(&app, vec![(fg.id.clone(), name.clone(), steam_id)]);
+            let mut title_id = None;
+            if let Some(cg) = api.config.custom_games.iter().find(|g| g.name == name) {
+                if let Some(first_file) = cg.files.first() {
+                    title_id = extract_title_id_from_path(first_file);
+                }
+            }
+            start_cover_downloads(&app, vec![(fg.id.clone(), name.clone(), steam_id, title_id)]);
         }
 
         Ok(Some(fg))
@@ -1093,6 +1434,8 @@ pub async fn get_settings(app: tauri::AppHandle) -> Result<FrontendSettings, Str
             portable,
             supabase_url,
             supabase_anon_key,
+            language: serde_json::to_string(&api.config.language).unwrap().trim_matches('"').to_string(),
+            has_set_language: api.config.has_set_language,
         })
     })
     .await
@@ -1116,6 +1459,12 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
         api.config.cloud.synchronize = settings.cloud_sync;
         api.config.apps.rclone.arguments = settings.rclone_arguments;
 
+        if let Ok(lang) = serde_json::from_str::<ludusavi::lang::Language>(&format!("\"{}\"", settings.language)) {
+            api.config.language = lang;
+            api.config.has_set_language = settings.has_set_language;
+            ludusavi::lang::TRANSLATOR.set_language(lang);
+        }
+
         api.config.save();
 
         // Save settings to ludocard.json
@@ -1135,6 +1484,22 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
             crate::watcher::stop_file_watcher();
         }
 
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn save_language(language: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let mut config = ludusavi::resource::config::Config::load().map_err(|e| e.to_string())?;
+        if let Ok(lang) = serde_json::from_str::<ludusavi::lang::Language>(&format!("\"{}\"", language)) {
+            config.language = lang;
+            config.has_set_language = true;
+            config.save();
+            ludusavi::lang::TRANSLATOR.set_language(lang);
+        }
         Ok(())
     })
     .await
@@ -1310,16 +1675,38 @@ fn autodetect_launchers() -> Vec<(StrictPath, Store)> {
     detected
 }
 
+#[derive(serde::Serialize)]
+pub struct AddRootResult {
+    pub success: bool,
+    pub is_emulator: bool,
+    pub emulator_name: Option<String>,
+}
+
 #[tauri::command]
-pub async fn add_root(path: String) -> Result<(), String> {
+pub async fn add_root(path: String) -> Result<AddRootResult, String> {
     tokio::task::spawn_blocking(move || {
+        let path_buf = PathBuf::from(&path);
+        
+        if let Some(emu_name) = crate::emulator::identify_emulator(&path_buf) {
+            return Ok(AddRootResult {
+                success: false,
+                is_emulator: true,
+                emulator_name: Some(emu_name),
+            });
+        }
+
         let mut api =
             Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
         let strict_path = StrictPath::new(path);
         let new_root = Root::new(strict_path, Store::Other);
         api.config.roots.push(new_root);
         api.config.save();
-        Ok(())
+        
+        Ok(AddRootResult {
+            success: true,
+            is_emulator: false,
+            emulator_name: None,
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -2263,4 +2650,799 @@ pub async fn export_ludocard_backup(
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[tauri::command]
+pub async fn save_backup_note(
+    app: tauri::AppHandle,
+    game_id: String,
+    backup_id: String,
+    note: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let config_path = app_data_dir.join("ludocard.json");
+        let mut json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+            serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+
+        if !json["backup_notes"].is_object() {
+            json["backup_notes"] = serde_json::json!({});
+        }
+
+        if !json["backup_notes"][&game_id].is_object() {
+            json["backup_notes"][&game_id] = serde_json::json!({});
+        }
+
+        json["backup_notes"][&game_id][&backup_id] = serde_json::json!(note);
+
+        let _ = std::fs::create_dir_all(&app_data_dir);
+        std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default())
+            .map_err(|e| format!("Falha ao salvar nota do backup: {}", e))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn open_url(url: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        opener::open(&url).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(Serialize)]
+pub struct SystemHardwareInfo {
+    pub cpu: String,
+    pub gpu: String,
+    pub ram: String,
+}
+
+#[cfg(target_os = "windows")]
+fn get_gpu_info() -> String {
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let class_path = "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";
+    if let Ok(class_key) = hklm.open_subkey(class_path) {
+        let mut gpus = Vec::new();
+        for name in class_key.enum_keys().filter_map(|r| r.ok()) {
+            if let Ok(subkey) = class_key.open_subkey(&name) {
+                if let Ok(desc) = subkey.get_value::<String, _>("DriverDesc") {
+                    if !desc.contains("Microsoft Basic Display Adapter") && !desc.contains("Software Device") {
+                        gpus.push(desc);
+                    }
+                }
+            }
+        }
+        if !gpus.is_empty() {
+            return gpus.join(", ");
+        }
+    }
+    "Unknown GPU".to_string()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_gpu_info() -> String {
+    "Unknown GPU".to_string()
+}
+
+#[tauri::command]
+pub async fn get_system_hardware_info() -> Result<SystemHardwareInfo, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+
+        let cpu = if let Some(cpu) = sys.cpus().first() {
+            cpu.brand().trim().to_string()
+        } else {
+            "Unknown CPU".to_string()
+        };
+
+        let total_memory_bytes = sys.total_memory();
+        let total_memory_gb = (total_memory_bytes as f64 / 1024.0 / 1024.0 / 1024.0).round();
+        let ram = format!("{} GB", total_memory_gb);
+
+        let gpu = get_gpu_info();
+
+        Ok(SystemHardwareInfo { cpu, gpu, ram })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn detect_game_config_files(
+    game_title: String,
+) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        let scan_output = api
+            .back_up(parameters::BackUp {
+                games: vec![game_title.clone()],
+                finality: Finality::Preview,
+                resolve_cloud_conflict: None,
+                wine_prefix: None,
+                include_disabled: true,
+                skip_downgrade: false,
+            })
+            .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+
+        let mut config_files = Vec::new();
+        if let Some(game_data) = scan_output.games.get(&game_title) {
+            if let ApiGame::Operative { files, .. } = game_data {
+                for file_path in files.keys() {
+                    let path = Path::new(file_path);
+                    let ext = path.extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+                    let name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    let is_config_ext = matches!(
+                        ext.as_str(),
+                        "ini" | "cfg" | "conf" | "config" | "settings" | "json" | "xml" | "yaml" | "yml" | "prefs" | "properties" | "toml" | "opt" | "txt"
+                    );
+
+                    let is_config_name = name.contains("config")
+                        || name.contains("settings")
+                        || name.contains("prefs")
+                        || name.contains("options")
+                        || name.contains("user");
+
+                    if is_config_ext || is_config_name {
+                        config_files.push(file_path.clone());
+                    }
+                }
+            }
+        }
+        Ok(config_files)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn create_preset_safety_backup(
+    app: tauri::AppHandle,
+    game_title: String,
+    game_id: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let safety_dir = app_data_dir.join("preset_safety").join(&game_id);
+        
+        // Clean any old backup
+        if safety_dir.exists() {
+            let _ = std::fs::remove_dir_all(&safety_dir);
+        }
+        std::fs::create_dir_all(&safety_dir)
+            .map_err(|e| format!("Falha ao criar diretório de Seguro-Crash: {}", e))?;
+
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        let scan_output = api
+            .back_up(parameters::BackUp {
+                games: vec![game_title.clone()],
+                finality: Finality::Preview,
+                resolve_cloud_conflict: None,
+                wine_prefix: None,
+                include_disabled: true,
+                skip_downgrade: false,
+            })
+            .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+
+        let mut config_files = Vec::new();
+        if let Some(game_data) = scan_output.games.get(&game_title) {
+            if let ApiGame::Operative { files, .. } = game_data {
+                for file_path in files.keys() {
+                    let path = Path::new(file_path);
+                    let ext = path.extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+                    let name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    let is_config_ext = matches!(
+                        ext.as_str(),
+                        "ini" | "cfg" | "conf" | "config" | "settings" | "json" | "xml" | "yaml" | "yml" | "prefs" | "properties" | "toml" | "opt" | "txt"
+                    );
+
+                    let is_config_name = name.contains("config")
+                        || name.contains("settings")
+                        || name.contains("prefs")
+                        || name.contains("options")
+                        || name.contains("user");
+
+                    if is_config_ext || is_config_name {
+                        config_files.push(file_path.clone());
+                    }
+                }
+            }
+        }
+
+        let mut manifest_mapping = HashMap::new();
+
+        for (index, file_path_str) in config_files.iter().enumerate() {
+            let file_path = Path::new(file_path_str);
+            if file_path.exists() && file_path.is_file() {
+                let backup_file_name = format!("file_{}", index);
+                let dest_path = safety_dir.join(&backup_file_name);
+                std::fs::copy(file_path, &dest_path)
+                    .map_err(|e| format!("Falha ao copiar arquivo de configuração para Seguro-Crash: {}", e))?;
+                manifest_mapping.insert(backup_file_name, file_path_str.clone());
+            }
+        }
+
+        let manifest_path = safety_dir.join("manifest.json");
+        let manifest_content = serde_json::to_string_pretty(&manifest_mapping)
+            .map_err(|e| format!("Falha ao serializar manifesto do Seguro-Crash: {}", e))?;
+        std::fs::write(&manifest_path, manifest_content)
+            .map_err(|e| format!("Falha ao gravar manifesto do Seguro-Crash: {}", e))?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn restore_preset_safety_backup(
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let safety_dir = app_data_dir.join("preset_safety").join(&game_id);
+        let manifest_path = safety_dir.join("manifest.json");
+
+        if !manifest_path.exists() {
+            return Err("Nenhum backup do Seguro-Crash encontrado para este jogo.".to_string());
+        }
+
+        let manifest_content = std::fs::read_to_string(&manifest_path)
+            .map_err(|e| format!("Falha ao ler manifesto do Seguro-Crash: {}", e))?;
+        let manifest_mapping: HashMap<String, String> = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Manifesto do Seguro-Crash corrompido: {}", e))?;
+
+        for (backup_file_name, original_path_str) in &manifest_mapping {
+            let src_path = safety_dir.join(backup_file_name);
+            let dest_path = Path::new(original_path_str);
+            
+            if src_path.exists() {
+                if let Some(parent) = dest_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                std::fs::copy(&src_path, dest_path)
+                    .map_err(|e| format!("Falha ao restaurar arquivo de configuração: {}", e))?;
+            }
+        }
+
+        // Clean up safety backup after successful restore
+        let _ = std::fs::remove_dir_all(&safety_dir);
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn export_temp_ludocard_preset(
+    app: tauri::AppHandle,
+    game_title: String,
+    game_id: String,
+    preset_title: String,
+    description: String,
+    save_path: String,
+    files: Vec<String>,
+) -> Result<HashMap<String, serde_json::Value>, String> {
+    tokio::task::spawn_blocking(move || {
+        // Create a temporary directory to assemble the files
+        let temp_dir = std::env::temp_dir();
+        let export_temp_dir = temp_dir.join(format!("ludocard_preset_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&export_temp_dir)
+            .map_err(|e| format!("Falha ao criar diretório temporário: {}", e))?;
+
+        let live_save_path = Path::new(&save_path);
+        let live_save_dir = if live_save_path.is_file() {
+            live_save_path.parent().unwrap_or(live_save_path)
+        } else if live_save_path.extension().is_some() {
+            live_save_path.parent().unwrap_or(live_save_path)
+        } else {
+            live_save_path
+        };
+        let live_str = live_save_dir.to_string_lossy().to_string().replace('\\', "/");
+        let is_live_str_valid = !live_str.trim().is_empty();
+
+        for file_path_str in &files {
+            let file_path = Path::new(file_path_str);
+            if !file_path.exists() {
+                continue;
+            }
+
+            let orig_str = file_path_str.replace('\\', "/");
+            let relative_path_str = if is_live_str_valid && orig_str.starts_with(&live_str) {
+                let mut rel = &orig_str[live_str.len()..];
+                if rel.starts_with('/') {
+                    rel = &rel[1..];
+                }
+                rel.to_string()
+            } else if is_live_str_valid && cfg!(target_os = "windows") && orig_str.to_lowercase().starts_with(&live_str.to_lowercase()) {
+                let mut rel = &orig_str[live_str.len()..];
+                if rel.starts_with('/') {
+                    rel = &rel[1..];
+                }
+                rel.to_string()
+            } else {
+                file_path.file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "config_file".to_string())
+            };
+
+            let dest_file_path = export_temp_dir.join(&relative_path_str);
+            if let Some(parent) = dest_file_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+
+            std::fs::copy(&file_path, &dest_file_path)
+                .map_err(|e| format!("Falha ao copiar arquivo para pasta temporária: {}", e))?;
+        }
+
+        // Pack the temporary folder
+        let temp_archive_path = temp_dir.join(format!("ludocard_upload_{}.ludocard", uuid::Uuid::new_v4()));
+        let temp_archive_path_str = temp_archive_path.to_string_lossy().to_string();
+
+        let metadata_res = export_ludocard_save_internal(
+            &app,
+            &game_title,
+            &game_id,
+            &preset_title,
+            &description,
+            &export_temp_dir.to_string_lossy().to_string(),
+            &temp_archive_path_str,
+        );
+
+        // Always clean up the temporary files directory
+        let _ = std::fs::remove_dir_all(&export_temp_dir);
+
+        let metadata = metadata_res.map_err(|e| format!("Falha ao empacotar preset: {}", e))?;
+
+        let mut result = HashMap::new();
+        result.insert("filePath".to_string(), serde_json::json!(temp_archive_path_str));
+        result.insert("fileSize".to_string(), serde_json::json!(metadata.compressed_size_bytes));
+        result.insert("fileName".to_string(), serde_json::json!(format!("{}_preset.ludocard", game_id)));
+        Ok(result)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalPreset {
+    pub id: String,
+    pub game_id: String,
+    pub game_title: String,
+    pub title: String,
+    pub description: String,
+    pub cpu: String,
+    pub gpu: String,
+    pub ram: String,
+    pub created_at: String,
+    pub files: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn save_local_preset(
+    app: tauri::AppHandle,
+    game_id: String,
+    game_title: String,
+    title: String,
+    description: String,
+    files: Vec<String>,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let preset_id = uuid::Uuid::new_v4().to_string();
+        let preset_dir = app_data_dir.join("local_presets").join(&game_id).join(&preset_id);
+        std::fs::create_dir_all(&preset_dir)
+            .map_err(|e| format!("Falha ao criar diretório do preset local: {}", e))?;
+
+        // Auto-detect hardware
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        let cpu = sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default();
+        let ram_gb = sys.total_memory() / (1024 * 1024 * 1024);
+        let ram = format!("{} GB", ram_gb);
+
+        // GPU registry detection
+        let mut gpu = String::new();
+        #[cfg(target_os = "windows")]
+        {
+            use winreg::enums::*;
+            use winreg::RegKey;
+            let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+            if let Ok(class_key) = hklm.open_subkey("SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}") {
+                for subkey_name in class_key.enum_keys().filter_map(|x| x.ok()) {
+                    if let Ok(driver_key) = class_key.open_subkey(&subkey_name) {
+                        if let Ok(driver_desc) = driver_key.get_value::<String, _>("DriverDesc") {
+                            gpu = driver_desc;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        let created_at = chrono::Utc::now().to_rfc3339();
+
+        let mut manifest_mapping = HashMap::new();
+        for (index, file_path_str) in files.iter().enumerate() {
+            let file_path = Path::new(file_path_str);
+            if file_path.exists() && file_path.is_file() {
+                let backup_file_name = format!("file_{}", index);
+                let dest_path = preset_dir.join(&backup_file_name);
+                std::fs::copy(file_path, &dest_path)
+                    .map_err(|e| format!("Falha ao copiar arquivo para preset local: {}", e))?;
+                manifest_mapping.insert(backup_file_name, file_path_str.clone());
+            }
+        }
+
+        let preset = LocalPreset {
+            id: preset_id,
+            game_id,
+            game_title,
+            title,
+            description,
+            cpu,
+            gpu,
+            ram,
+            created_at,
+            files: files.clone(),
+        };
+
+        let meta_path = preset_dir.join("manifest.json");
+        let meta_content = serde_json::to_string_pretty(&preset)
+            .map_err(|e| format!("Falha ao serializar manifesto do preset: {}", e))?;
+        std::fs::write(&meta_path, meta_content)
+            .map_err(|e| format!("Falha ao gravar manifesto do preset: {}", e))?;
+
+        let mapping_path = preset_dir.join("mapping.json");
+        let mapping_content = serde_json::to_string_pretty(&manifest_mapping)
+            .map_err(|e| format!("Falha ao serializar mapeamento de arquivos: {}", e))?;
+        std::fs::write(&mapping_path, mapping_content)
+            .map_err(|e| format!("Falha ao gravar mapeamento de arquivos: {}", e))?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn list_local_presets(
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<Vec<LocalPreset>, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let game_presets_dir = app_data_dir.join("local_presets").join(&game_id);
+
+        if !game_presets_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut list = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(game_presets_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let manifest_path = entry.path().join("manifest.json");
+                    if manifest_path.exists() {
+                        if let Ok(content) = std::fs::read_to_string(manifest_path) {
+                            if let Ok(preset) = serde_json::from_str::<LocalPreset>(&content) {
+                                list.push(preset);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(list)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn delete_local_preset(
+    app: tauri::AppHandle,
+    game_id: String,
+    preset_id: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let preset_dir = app_data_dir.join("local_presets").join(&game_id).join(&preset_id);
+        if preset_dir.exists() {
+            std::fs::remove_dir_all(&preset_dir)
+                .map_err(|e| format!("Falha ao remover diretório de preset local: {}", e))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn apply_local_preset(
+    app: tauri::AppHandle,
+    game_title: String,
+    game_id: String,
+    preset_id: String,
+) -> Result<(), String> {
+    create_preset_safety_backup(app.clone(), game_title, game_id.clone()).await?;
+
+    let (manifest_mapping, preset_dir) = tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        move || -> Result<(HashMap<String, String>, PathBuf), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let preset_dir = app_data_dir.join("local_presets").join(&game_id).join(&preset_id);
+            let mapping_path = preset_dir.join("mapping.json");
+
+            if !mapping_path.exists() {
+                return Err("Mapeamento do preset local não encontrado.".to_string());
+            }
+
+            let mapping_content = std::fs::read_to_string(&mapping_path)
+                .map_err(|e| format!("Falha ao ler mapeamento do preset: {}", e))?;
+            let manifest_mapping: HashMap<String, String> = serde_json::from_str(&mapping_content)
+                .map_err(|e| format!("Mapeamento do preset corrompido: {}", e))?;
+            Ok((manifest_mapping, preset_dir))
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    tokio::task::spawn_blocking(move || {
+        for (backup_file_name, original_path_str) in &manifest_mapping {
+            let src_path = preset_dir.join(backup_file_name);
+            let dest_path = Path::new(original_path_str);
+            
+            if src_path.exists() {
+                if let Some(parent) = dest_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                std::fs::copy(&src_path, dest_path)
+                    .map_err(|e| format!("Falha ao aplicar arquivo de configuração: {}", e))?;
+            }
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn export_local_preset_archive(
+    app: tauri::AppHandle,
+    game_id: String,
+    preset_id: String,
+    save_path: String,
+) -> Result<HashMap<String, serde_json::Value>, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let preset_dir = app_data_dir.join("local_presets").join(&game_id).join(&preset_id);
+        let meta_path = preset_dir.join("manifest.json");
+        let mapping_path = preset_dir.join("mapping.json");
+
+        if !meta_path.exists() || !mapping_path.exists() {
+            return Err("Preset local incompleto ou inválido.".to_string());
+        }
+
+        let meta_content = std::fs::read_to_string(&meta_path)
+            .map_err(|e| format!("Falha ao ler metadados do preset: {}", e))?;
+        let preset: LocalPreset = serde_json::from_str(&meta_content)
+            .map_err(|e| format!("Metadados do preset corrompidos: {}", e))?;
+
+        let mapping_content = std::fs::read_to_string(&mapping_path)
+            .map_err(|e| format!("Falha ao ler mapeamento do preset: {}", e))?;
+        let manifest_mapping: HashMap<String, String> = serde_json::from_str(&mapping_content)
+            .map_err(|e| format!("Mapeamento do preset corrompido: {}", e))?;
+
+        let temp_dir = std::env::temp_dir();
+        let export_temp_dir = temp_dir.join(format!("ludocard_preset_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&export_temp_dir)
+            .map_err(|e| format!("Falha ao criar diretório temporário: {}", e))?;
+
+        let live_save_path = Path::new(&save_path);
+        let live_save_dir = if live_save_path.is_file() {
+            live_save_path.parent().unwrap_or(live_save_path)
+        } else if live_save_path.extension().is_some() {
+            live_save_path.parent().unwrap_or(live_save_path)
+        } else {
+            live_save_path
+        };
+        let live_str = live_save_dir.to_string_lossy().to_string().replace('\\', "/");
+        let is_live_str_valid = !live_str.trim().is_empty();
+
+        for (backup_file_name, original_path_str) in &manifest_mapping {
+            let src_path = preset_dir.join(backup_file_name);
+            if !src_path.exists() {
+                continue;
+            }
+
+            let orig_str = original_path_str.replace('\\', "/");
+            let relative_path_str = if is_live_str_valid && orig_str.starts_with(&live_str) {
+                let mut rel = &orig_str[live_str.len()..];
+                if rel.starts_with('/') {
+                    rel = &rel[1..];
+                }
+                rel.to_string()
+            } else if is_live_str_valid && cfg!(target_os = "windows") && orig_str.to_lowercase().starts_with(&live_str.to_lowercase()) {
+                let mut rel = &orig_str[live_str.len()..];
+                if rel.starts_with('/') {
+                    rel = &rel[1..];
+                }
+                rel.to_string()
+            } else {
+                let path = Path::new(original_path_str);
+                path.file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "config_file".to_string())
+            };
+
+            let dest_file_path = export_temp_dir.join(&relative_path_str);
+            if let Some(parent) = dest_file_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+
+            std::fs::copy(&src_path, &dest_file_path)
+                .map_err(|e| format!("Falha ao copiar arquivo para pasta temporária: {}", e))?;
+        }
+
+        let temp_archive_path = temp_dir.join(format!("ludocard_upload_{}.ludocard", uuid::Uuid::new_v4()));
+        let temp_archive_path_str = temp_archive_path.to_string_lossy().to_string();
+
+        let metadata_res = export_ludocard_save_internal(
+            &app,
+            &preset.game_title,
+            &preset.game_id,
+            &preset.title,
+            &preset.description,
+            &export_temp_dir.to_string_lossy().to_string(),
+            &temp_archive_path_str,
+        );
+
+        let _ = std::fs::remove_dir_all(&export_temp_dir);
+
+        let metadata = metadata_res.map_err(|e| format!("Falha ao empacotar preset local: {}", e))?;
+
+        let mut result = HashMap::new();
+        result.insert("filePath".to_string(), serde_json::json!(temp_archive_path_str));
+        result.insert("fileSize".to_string(), serde_json::json!(metadata.compressed_size_bytes));
+        result.insert("fileName".to_string(), serde_json::json!(format!("{}_preset.ludocard", game_id)));
+        Ok(result)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub fn load_emulators_setting(app_data_dir: &Path) -> Vec<String> {
+    let config_path = app_data_dir.join("ludocard.json");
+    if let Ok(content) = std::fs::read_to_string(&config_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(arr) = json.get("emulators").and_then(|v| v.as_array()) {
+                return arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+            }
+        }
+    }
+    Vec::new()
+}
+
+pub fn save_emulators_setting(app_data_dir: &Path, emulators: &[String]) {
+    let config_path = app_data_dir.join("ludocard.json");
+    let mut json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    json["emulators"] = serde_json::json!(emulators);
+    let _ = std::fs::create_dir_all(app_data_dir);
+    let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default());
+}
+
+#[tauri::command]
+pub async fn add_emulator(app: tauri::AppHandle, path: String) -> Result<usize, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+        
+        let path_buf = PathBuf::from(&path);
+        if !path_buf.exists() {
+            return Err("Caminho do emulador não existe.".to_string());
+        }
+
+        let emu_name = crate::emulator::identify_emulator(&path_buf)
+            .ok_or_else(|| "Nenhum emulador compatível detectado nesta pasta (verifique se o executável do emulador está presente).".to_string())?;
+
+        let mut emulators = load_emulators_setting(&app_data_dir);
+        if emulators.contains(&path) {
+            return Err("Este emulador já está adicionado.".to_string());
+        }
+        emulators.push(path.clone());
+        save_emulators_setting(&app_data_dir, &emulators);
+
+        // Run initial scan for this emulator
+        let detected = crate::emulator::scan_emulator_saves(&emu_name, &path);
+        let count = detected.len();
+        if !detected.is_empty() {
+            crate::emulator::register_emulator_saves(detected)?;
+        }
+
+        Ok(count)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn remove_emulator(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+        let mut emulators = load_emulators_setting(&app_data_dir);
+        emulators.retain(|p| p != &path);
+        save_emulators_setting(&app_data_dir, &emulators);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(serde::Serialize)]
+pub struct FrontendEmulator {
+    pub path: String,
+    pub name: String,
+}
+
+#[tauri::command]
+pub async fn get_emulators(app: tauri::AppHandle) -> Result<Vec<FrontendEmulator>, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+        let emulators = load_emulators_setting(&app_data_dir);
+        
+        let mut list = Vec::new();
+        for path in emulators {
+            let path_buf = PathBuf::from(&path);
+            let name = crate::emulator::identify_emulator(&path_buf)
+                .unwrap_or_else(|| "Desconhecido".to_string());
+            list.push(FrontendEmulator { path, name });
+        }
+        Ok(list)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_translations() -> Result<std::collections::HashMap<String, String>, String> {
+    tokio::task::spawn_blocking(move || {
+        Ok(ludusavi::lang::TRANSLATOR.get_translations())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+
 

@@ -249,3 +249,52 @@ new-version-available = 应用程序更新可用：{ $version }. 是否要查看
 custom-game-will-override = 这个自定义游戏会覆盖一个清单项
 custom-game-will-extend = 这个自定义游戏会扩展一个清单项
 operation-will-only-include-listed-games = 这将仅处理当前列出的游戏
+
+ludocard-library = 游戏库
+ludocard-scan-and-add = 扫描与添加
+ludocard-cloud-and-sync = 云与同步
+ludocard-save-share-hub = 存档分享中心
+ludocard-preset-share-hub = 配置分享中心
+ludocard-settings = 设置
+ludocard-support-project = 支持项目
+ludocard-library-status = 游戏库状态
+ludocard-games = 游戏数
+ludocard-language = 语言
+ludocard-language-desc = 界面显示语言。
+ludocard-sidebar-subtitle = 存档备份管理器
+ludocard-navigation = 导航
+ludocard-stored-saves = 已存储存档
+ludocard-pending-saves = 待处理
+ludocard-downloading-covers = 正在下载封面...
+ludocard-settings-desc = 应用偏好设置与行为
+ludocard-dashboard-desc = 管理并保护您的游戏存档
+
+ludocard-file-watcher = 存档监视器 (File Watcher)
+ludocard-file-watcher-desc = 监视存档文件更改，在游戏关闭时自动进行备份。
+ludocard-start-with-windows = 随 Windows 启动
+ludocard-start-with-windows-desc = 电脑开机时自动启动并最小化至系统托盘。
+ludocard-system-tray = 最小化至托盘 (System Tray)
+ludocard-system-tray-desc = 点击关闭时最小化至系统托盘，保持后台监视运行。
+ludocard-portable = 便携模式 (Portable Mode)
+ludocard-portable-desc = 将所有配置、清单和备份保存在可执行文件目录下（非常适合U盘）。
+ludocard-theme = 主题
+ludocard-theme-desc = 应用程序的界面外观。
+ludocard-theme-dark = 深色
+ludocard-theme-light = 浅色
+ludocard-theme-system = 跟随系统
+ludocard-backup-dir = 备份目录
+ludocard-backup-dir-desc = 本地游戏存档备份的存储路径。
+
+ludocard-rclone-path = Rclone 可执行文件路径
+ludocard-rclone-path-desc = 用于云端同步的 Rclone 可执行文件的路径。
+ludocard-cloud-folder = 云端远程文件夹
+ludocard-cloud-folder-desc = 用于同步文件的远程文件夹名称。
+ludocard-rclone-args = Rclone 附加参数
+ludocard-rclone-args-desc = 直接传递给 rclone 的可选命令和标志。
+ludocard-supabase-url = Supabase URL (社区仓库)
+ludocard-supabase-url-desc = 用于社区标签页的 Supabase 项目 API URL。
+ludocard-supabase-key = Supabase 匿名密钥 (Anon Key)
+ludocard-supabase-key-desc = 用于表单匿名身份验证的公共 (anon) 密钥。
+ludocard-btn-save-settings = 保存设置
+
+

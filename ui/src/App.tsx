@@ -5,6 +5,8 @@ import Scan from "@/pages/Scan";
 import Cloud from "@/pages/Cloud";
 import Settings from "@/pages/Settings";
 import Community from "@/pages/Community";
+import PresetHub from "@/pages/PresetHub";
+import Support from "@/pages/Support";
 
 export default function App() {
   return (
@@ -14,7 +16,10 @@ export default function App() {
       <Route path="/scan" element={<Scan />} />
       <Route path="/cloud" element={<Cloud />} />
       <Route path="/community" element={<Community />} />
+      <Route path="/presets" element={<PresetHub />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/support" element={<Support />} />
     </Routes>
   );
 }
+

@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button"
 import { LibraryClient } from "@/components/dashboard/library-client"
 import { useLibrary } from "@/lib/library-context"
 import { toast } from "sonner"
+import { useI18n } from "@/lib/i18n"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
 export default function Dashboard() {
   const { games, loadGames } = useLibrary()
+  const { t } = useI18n()
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [backingUp, setBackingUp] = useState(false)
 
@@ -20,7 +22,7 @@ export default function Dashboard() {
     if (gamesToBackup.length === 0) return;
 
     setBackingUp(true);
-    const toastId = toast.loading(`Fazendo backup de ${gamesToBackup.length} jogo(s)...`);
+    const toastId = toast.loading(t("ludocard-toast-backing-up", "Fazendo backup de saves..."));
     try {
       if (isTauri) {
         const { invoke } = await import("@tauri-apps/api/core");
@@ -29,8 +31,8 @@ export default function Dashboard() {
         }
         toast.success(
           selectedCount > 0
-            ? `Backup concluído para os jogos selecionados!`
-            : `Backup concluído para todos os jogos!`,
+            ? t("ludocard-toast-backup-selected-success", "Backup concluído para os jogos selecionados!")
+            : t("ludocard-toast-backup-all-success", "Backup concluído para todos os jogos!"),
           { id: toastId }
         );
         loadGames(true);
@@ -38,14 +40,14 @@ export default function Dashboard() {
         await new Promise(resolve => setTimeout(resolve, 1500));
         toast.success(
           selectedCount > 0
-            ? `[Mock] Backup concluído para os jogos selecionados!`
-            : `[Mock] Backup concluído para todos os jogos!`,
+            ? `[Mock] ${t("ludocard-toast-backup-selected-success", "Backup concluído para os jogos selecionados!")}`
+            : `[Mock] ${t("ludocard-toast-backup-all-success", "Backup concluído para todos os jogos!")}`,
           { id: toastId }
         );
       }
       setSelected({}); // Clear selection after backup
     } catch (err) {
-      toast.error(`Falha no backup: ${err}`, { id: toastId });
+      toast.error(`${t("ludocard-toast-backup-failed", "Falha no backup:")} ${err}`, { id: toastId });
     } finally {
       setBackingUp(false);
     }
@@ -53,13 +55,13 @@ export default function Dashboard() {
 
   return (
     <AppShell
-      title="Biblioteca"
-      description="Gerencie e proteja os saves dos seus jogos"
+      title={t("ludocard-library", "Biblioteca")}
+      description={t("ludocard-dashboard-desc", "Gerencie e proteja os saves dos seus jogos")}
       actions={
         <Button
           disabled={backingUp || games.length === 0}
           onClick={handleBackupSelected}
-          variant={selectedCount > 0 ? "default" : "outline"}
+          variant="default"
         >
           {backingUp ? (
             <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
@@ -67,8 +69,8 @@ export default function Dashboard() {
             <ArrowUpToLine data-icon="inline-start" />
           )}
           {selectedCount > 0
-            ? `Fazer backup (${selectedCount}/${games.length})`
-            : `Fazer backup de todos (${games.length}/${games.length})`}
+            ? `${t("button-backup", "Fazer backup")} (${selectedCount}/${games.length})`
+            : `${t("ludocard-backup-all", "Fazer backup de todos")} (${games.length}/${games.length})`}
         </Button>
       }
     >

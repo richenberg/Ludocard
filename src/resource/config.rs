@@ -113,6 +113,8 @@ pub struct Config {
     pub release: Release,
     pub manifest: ManifestConfig,
     pub language: Language,
+    #[serde(default)]
+    pub has_set_language: bool,
     pub theme: Theme,
     pub roots: Vec<Root>,
     pub redirects: Vec<RedirectConfig>,
@@ -1432,7 +1434,15 @@ impl Config {
     }
 
     pub fn load() -> Result<Self, Error> {
-        ResourceFile::load().map_err(|e| Error::ConfigInvalid { why: format!("{e}") })
+        let path = Self::path();
+        let existed = path.exists();
+        let mut config: Self = ResourceFile::load().map_err(|e| Error::ConfigInvalid { why: format!("{e}") })?;
+        if !existed {
+            config.has_set_language = false;
+        } else {
+            config.has_set_language = true;
+        }
+        Ok(config)
     }
 
     pub fn archive_invalid() -> Result<(), Box<dyn std::error::Error>> {
@@ -2115,6 +2125,7 @@ mod tests {
                     secondary: vec![]
                 },
                 language: Language::English,
+                has_set_language: false,
                 theme: Theme::Light,
                 roots: vec![],
                 redirects: vec![],
@@ -2239,6 +2250,7 @@ mod tests {
                     }]
                 },
                 language: Language::English,
+                has_set_language: false,
                 theme: Theme::Light,
                 roots: vec![Root::new("~/steam", Store::Steam), Root::new("~/other", Store::Other),],
                 redirects: vec![RedirectConfig {
@@ -2342,6 +2354,7 @@ manifest:
   url: example.com
   enable: true
 language: en-US
+hasSetLanguage: false
 theme: light
 roots:
   - store: steam
@@ -2459,6 +2472,7 @@ customGames:
                     secondary: vec![]
                 },
                 language: Language::English,
+                has_set_language: false,
                 theme: Theme::Light,
                 roots: vec![Root::new("~/steam", Store::Steam), Root::new("~/other", Store::Other),],
                 redirects: vec![RedirectConfig {

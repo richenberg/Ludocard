@@ -9,6 +9,8 @@ commands.allow = [
   "restore_game",
   "get_settings",
   "save_settings",
+  "save_language",
+  "get_translations",
   "get_roots",
   "add_root",
   "remove_root",
@@ -28,5 +30,21 @@ commands.allow = [
   "export_temp_ludocard_save",
   "export_temp_ludocard_backup",
   "export_ludocard_backup",
-  "delete_temp_file"
+  "delete_temp_file",
+  "save_backup_note",
+  "open_url",
+  "get_system_hardware_info",
+  "detect_game_config_files",
+  "create_preset_safety_backup",
+  "restore_preset_safety_backup",
+  "export_temp_ludocard_preset",
+  "save_local_preset",
+  "list_local_presets",
+  "delete_local_preset",
+  "apply_local_preset",
+  "export_local_preset_archive",
+  "add_emulator",
+  "remove_emulator",
+  "get_emulators"
 ]
+

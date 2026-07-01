@@ -3,6 +3,7 @@
 //! Registers a global shortcut (default Ctrl+Shift+S) on Windows.
 //! When pressed, it detects the active foreground window, finds the corresponding game,
 //! and runs a silent backup.
+#![cfg_attr(not(target_os = "windows"), allow(dead_code, unused_variables))]
 
 use ludusavi::api::Ludusavi;
 use std::path::Path;

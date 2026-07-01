@@ -1666,6 +1666,7 @@ pub async fn open_game_folder(game_title: String, folder_type: String, save_path
 }
 
 fn autodetect_launchers() -> Vec<(StrictPath, Store)> {
+    #[allow(unused_mut)]
     let mut detected = Vec::new();
 
     #[cfg(target_os = "windows")]

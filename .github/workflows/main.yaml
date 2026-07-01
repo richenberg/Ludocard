@@ -43,7 +43,8 @@ jobs:
           args: --style semver
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable-${{ matrix.rust-target }}
+          toolchain: stable
+          targets: ${{ matrix.rust-target }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ matrix.rust-target }}

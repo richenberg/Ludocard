@@ -42,12 +42,12 @@ adicionar uma opção nas configurações para desativar isso e econimzar proces
 
 ### Bloco B: Facilidades de Armazenamento e Capas
 - [x] **Download de Capas Automático**: Conectar com a API da Steam (usando a ID do jogo) ou SteamGridDB para buscar imagens reais de capas verticais para os jogos da biblioteca, substituindo os placeholders estáticos.
-- [ ] **Mover Jogos ("Steam Spreader" do GSM)**: Ferramenta para mover jogos instalados da Steam/Epic/GOG para outros discos/pastas do computador, criando Links Simbólicos (Symbolic Links) automaticamente para que os launchers continuem iniciando o jogo sem problemas (útil para limpar espaço em SSDs).
+
 
 ### Bloco C: Recursos Avançados de Backup
 - [x] **Bloqueio de Versão (Pin Backup)**: Permitir "alfinetar" ou "bloquear" um backup específico no histórico (ex: antes de uma escolha importante no jogo), impedindo que ele seja deletado automaticamente quando o limite de retenção for atingido.
 - [x] **Modo Portátil (Portable Mode)**: Opção de salvar todos os backups e arquivos de configuração na própria pasta do executável (permitindo colocar o Ludocard em um pendrive/HD externo e levá-lo com você).
-- [ ] **Backup de Configurações do Jogo**: Muitas vezes as configurações gráficas, controles e áudio ficam em pastas diferentes dos saves (ex: arquivos `.ini`/`.cfg` em Documents ou AppData). Ter opções para escanear e salvar esses metadados adicionais.
+- [x] **Backup de Configurações do Jogo**: Muitas vezes as configurações gráficas, controles e áudio ficam em pastas diferentes dos saves (ex: arquivos `.ini`/`.cfg` em Documents ou AppData). Ter opções para escanear e salvar esses metadados adicionais.
 - [ ] **Perfis de Saves (Modding e Campanhas Paralelas)**: Permitir criar "perfis" diferentes para o mesmo jogo. Útil para separar gameplay com mods de uma campanha limpa (vanilla), ou para jogos de personagem único. O app troca os arquivos da pasta ativa dependendo do perfil selecionado.
 - [ ] **Assistente de Conflitos Visual**: Se a nuvem detectar arquivos diferentes entre o PC local e o notebook, exibir uma tela lado a lado comparando as versões com badges claras (ex: *"Este PC (Mais antigo - 10MB)"* vs *"Nuvem (Mais recente - 12MB)"*) para que o usuário decida qual progresso manter.
 
@@ -99,12 +99,12 @@ Dessa forma, o seu aplicativo fica 100% seguro, leve, e nenhuma senha master sua
 - [ ] **Notas de Campanha (O "Diário de Bordo")**: Um campo de texto simples dentro do card de cada jogo para anotações rápidas sobre o progresso (ex: *"Parei logo após derrotar o Boss X. Próximo passo: build de mago e explorar área oeste"*).
 
 ### Bloco F: Localização e Idiomas
-- [ ] **Suporte Multi-idioma**: Tradução completa da interface para múltiplos idiomas (Português, Inglês, Espanhol, Russo, Chines simplificado).
-- [ ] **Integração com Fluent**: Conectar com os arquivos de tradução baseados em Fluent (`.ftl`) herdados da biblioteca núcleo do Ludosavi para manter consistência sem redobrar o trabalho de localização.
+- [x] **Suporte Multi-idioma**: Tradução completa da interface para múltiplos idiomas (Português, Inglês, Espanhol, Russo, Chines simplificado).
+- [x] **Integração com Fluent**: Conectar com os arquivos de tradução baseados em Fluent (`.ftl`) herdados da biblioteca núcleo do Ludosavi para manter consistência sem redobrar o trabalho de localização.
 
 ---
 
-- [ ] **Seletor de cloud** No fazer backup colocar uma flechinha pra selecionar backup local ou cloud, e deixar o cloud cinza se não estiver configurado
+- [x] **Seletor de cloud** se o Cloud sync estiver ativo, No "fazer backup" colocar uma flechinha pra selecionar backup local ou cloud
 
 
 - [x] **Sistema de compartilhar Presets**
@@ -168,7 +168,7 @@ Dessa forma, o seu aplicativo fica 100% seguro, leve, e nenhuma senha master sua
 
 ## 👑 4. Área Administrativa (Painel Admin)
 
-- [ ] **Painel de Controle Admin**: Uma tela ou modal oculto/protegido por senha nas configurações para gerenciamento da infraestrutura.
-- [ ] **Gerenciamento de Conteúdo**: Listagem e opção de deletar diretamente do Supabase/R2 saves e presets que estejam corrompidos, ofensivos ou com erros.
-- [ ] **Monitoramento de Quota R2**: Exibição da cota e espaço restante no Cloudflare R2 (gratuito de 10 GB) com métricas de uso em tempo real.
-- [ ] **Histórico e Logs**: Rastreamento de uploads suspeitos e ações para banimento de UUIDs abusivos.
+- [x] **Painel de Controle Admin**: Uma tela ou modal oculto/protegido por senha nas configurações para gerenciamento da infraestrutura.
+- [x] **Gerenciamento de Conteúdo**: Listagem e opção de deletar diretamente do Supabase/R2 saves e presets que estejam corrompidos, ofensivos ou com erros.
+- [x] **Monitoramento de Quota R2**: Exibição da cota e espaço restante no Cloudflare R2 (gratuito de 10 GB) com métricas de uso em tempo real.
+- [x] **Histórico e Logs**: Rastreamento de uploads suspeitos e ações para banimento de UUIDs abusivos.

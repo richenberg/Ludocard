@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { GameDetailClient } from "@/components/game-detail/game-detail-client"
 import { type Game } from "@/lib/mock-data"
 import { useLibrary } from "@/lib/library-context"
+import { useI18n } from "@/lib/i18n"
 
 function checkIsTauri(): boolean {
   return typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -15,6 +16,7 @@ export default function GameDetail() {
   const { id } = useParams<{ id: string }>()
   const { games, loading: libraryLoading } = useLibrary()
   const isTauri = checkIsTauri()
+  const { t } = useI18n()
 
   // Find game from already-loaded library context (instant)
   const gameFromContext = useMemo(() => games.find(g => g.id === id), [games, id])
@@ -61,10 +63,10 @@ export default function GameDetail() {
 
   if (libraryLoading) {
     return (
-      <AppShell title="Carregando..." description="Buscando detalhes do jogo">
+      <AppShell title={t("ludocard-loading", "Carregando...")} description={t("ludocard-fetching-details", "Buscando detalhes do jogo")}>
         <div className="flex h-[400px] flex-col items-center justify-center gap-2">
           <Loader2 className="size-8 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Carregando detalhes do jogo...</span>
+          <span className="text-sm text-muted-foreground">{t("ludocard-loading-details", "Carregando detalhes do jogo...")}</span>
         </div>
       </AppShell>
     )
@@ -75,14 +77,14 @@ export default function GameDetail() {
   return (
     <AppShell
       title={game.title}
-      description="Detalhes e histórico de backups"
+      description={t("ludocard-details-desc", "Detalhes e histórico de backups")}
       actions={
         <Button
           variant="outline"
           render={
             <Link to="/">
               <ArrowLeft data-icon="inline-start" />
-              Voltar
+              {t("ludocard-back", "Voltar")}
             </Link>
           }
         />

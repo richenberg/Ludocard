@@ -2764,6 +2764,7 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
+ "shlex 1.3.0",
  "sysinfo",
  "tar",
  "tauri",
@@ -2773,6 +2774,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "winreg 0.52.0",
+ "zip",
  "zstd 0.13.3",
 ]
 

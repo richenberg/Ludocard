@@ -9,11 +9,14 @@ import {
 import { AppShell } from "@/components/app-shell"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n"
 
 const ITCH_URL = "https://itch.io" // Link de doação do Itch.io
 const STRIPE_URL = "https://stripe.com" // Link de pagamento do Stripe (suporta Pix e Cartões)
 
 export default function Support() {
+  const { t } = useI18n()
+  
   const handleOpenUrl = async (url: string) => {
     try {
       const { invoke } = await import("@tauri-apps/api/core")
@@ -27,8 +30,8 @@ export default function Support() {
 
   return (
     <AppShell
-      title="Apoiar o Projeto"
-      description="Ajude a manter os servidores comunitários de saves e presets online"
+      title={t("ludocard-support-title", "Apoiar o Projeto")}
+      description={t("ludocard-support-desc", "Ajude a manter os servidores comunitários de saves e presets online")}
     >
       <div className="flex flex-col gap-6 max-w-2xl mx-auto my-4">
         {/* Intro Banner */}
@@ -38,9 +41,9 @@ export default function Support() {
               <Heart className="size-6 fill-current text-rose-500 animate-pulse" />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <h2 className="text-sm font-bold text-foreground">O Ludocard é totalmente gratuito!</h2>
+              <h2 className="text-sm font-bold text-foreground">{t("ludocard-support-intro-title", "O Ludocard é totalmente gratuito!")}</h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Nossos recursos de nuvem (Save Share Hub e Presets) geram custos mensais de servidores e tráfego. Se o aplicativo é útil para você, considere apoiar para ajudar a mantê-los online!
+                {t("ludocard-support-intro-desc", "Nossos recursos de nuvem (Save Share Hub e Presets) geram custos mensais de servidores e tráfego. Se o aplicativo é útil para você, considere apoiar para ajudar a mantê-los online!")}
               </p>
             </div>
           </div>
@@ -55,10 +58,10 @@ export default function Support() {
               <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Coffee className="size-3.5 fill-current" />
               </span>
-              Como Apoiar o Projeto
+              {t("ludocard-how-to-support", "Como Apoiar o Projeto")}
             </CardTitle>
             <CardDescription className="text-xs">
-              Escolha a sua forma de contribuição preferida. O Stripe oferece suporte a cartões de crédito e PIX nacional.
+              {t("ludocard-how-to-support-desc", "Escolha a sua forma de contribuição preferida. O Stripe oferece suporte a cartões de crédito e PIX nacional.")}
             </CardDescription>
           </CardHeader>
           
@@ -71,7 +74,7 @@ export default function Support() {
                 className="w-full bg-rose-600 hover:bg-rose-500 text-white font-medium flex items-center justify-center gap-2 h-11 shadow-md shadow-rose-950/10 cursor-pointer text-sm"
               >
                 <Globe className="size-4" />
-                Apoiar no Itch.io
+                {t("ludocard-support-itch", "Apoiar no Itch.io")}
                 <ExternalLink className="size-3.5" />
               </Button>
 
@@ -81,7 +84,7 @@ export default function Support() {
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center gap-2 h-11 shadow-md shadow-indigo-950/10 cursor-pointer text-sm"
               >
                 <CreditCard className="size-4" />
-                Cartão / PIX via Stripe
+                {t("ludocard-support-stripe", "Cartão / PIX via Stripe")}
                 <ExternalLink className="size-3.5" />
               </Button>
             </div>
@@ -92,9 +95,9 @@ export default function Support() {
         <div className="flex gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-xs text-blue-300">
           <Info className="size-4 shrink-0 text-blue-400 mt-0.5" />
           <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-blue-200">Destinação dos Recursos</span>
+            <span className="font-semibold text-blue-200">{t("ludocard-support-dest", "Destinação dos Recursos")}</span>
             <p className="text-[11px] text-blue-300/80 leading-relaxed">
-              Toda contribuição é integralmente voltada para a manutenção dos servidores em nuvem (hospedagem e tráfego de dados).
+              {t("ludocard-support-dest-desc", "Toda contribuição é integralmente voltada para a manutenção dos servidores em nuvem (hospedagem e tráfego de dados).")}
             </p>
           </div>
         </div>

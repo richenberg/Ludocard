@@ -68,6 +68,7 @@ pub struct FrontendSettings {
     pub supabase_anon_key: String,
     pub language: String,
     pub has_set_language: bool,
+    pub has_cloud_remote: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1436,6 +1437,7 @@ pub async fn get_settings(app: tauri::AppHandle) -> Result<FrontendSettings, Str
             supabase_anon_key,
             language: serde_json::to_string(&api.config.language).unwrap().trim_matches('"').to_string(),
             has_set_language: api.config.has_set_language,
+            has_cloud_remote: api.config.cloud.remote.is_some(),
         })
     })
     .await
@@ -1493,7 +1495,7 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
 #[tauri::command]
 pub async fn save_language(language: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let mut config = ludusavi::resource::config::Config::load().map_err(|e| e.to_string())?;
+        let mut config = ludusavi::resource::config::Config::load().map_err(|e| format!("{:?}", e))?;
         if let Ok(lang) = serde_json::from_str::<ludusavi::lang::Language>(&format!("\"{}\"", language)) {
             config.language = lang;
             config.has_set_language = true;
@@ -3443,6 +3445,204 @@ pub async fn get_translations() -> Result<std::collections::HashMap<String, Stri
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[tauri::command]
+pub async fn download_rclone(app: tauri::AppHandle) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+        let rclone_dir = app_data_dir.join("rclone");
+        std::fs::create_dir_all(&rclone_dir).map_err(|e| format!("Failed to create rclone folder: {}", e))?;
+        
+        let url = if cfg!(target_os = "windows") {
+            "https://downloads.rclone.org/v1.68.0/rclone-v1.68.0-windows-amd64.zip"
+        } else if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                "https://downloads.rclone.org/v1.68.0/rclone-v1.68.0-osx-arm64.zip"
+            } else {
+                "https://downloads.rclone.org/v1.68.0/rclone-v1.68.0-osx-amd64.zip"
+            }
+        } else {
+            "https://downloads.rclone.org/v1.68.0/rclone-v1.68.0-linux-amd64.zip"
+        };
+
+        // Download ZIP
+        let response = reqwest::blocking::get(url).map_err(|e| format!("Download error: {}", e))?;
+        let bytes = response.bytes().map_err(|e| format!("Failed to read bytes: {}", e))?;
+        
+        // Extract ZIP
+        let cursor = std::io::Cursor::new(bytes.to_vec());
+        let mut archive = zip::ZipArchive::new(cursor).map_err(|e| format!("Failed to parse zip: {}", e))?;
+        
+        let exe_name = if cfg!(target_os = "windows") { "rclone.exe" } else { "rclone" };
+        let mut found_exe = false;
+        let exe_path_buf = rclone_dir.join(exe_name);
+        
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).map_err(|e| format!("Failed to read zip entry: {}", e))?;
+            let name = file.name();
+            if name.ends_with(exe_name) {
+                let mut out_file = std::fs::File::create(&exe_path_buf)
+                    .map_err(|e| format!("Failed to create rclone executable file: {}", e))?;
+                std::io::copy(&mut file, &mut out_file)
+                    .map_err(|e| format!("Failed to write rclone executable: {}", e))?;
+                found_exe = true;
+                break;
+            }
+        }
+        
+        if !found_exe {
+            return Err("rclone executable not found inside downloaded archive".to_string());
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&exe_path_buf).map_err(|e| e.to_string())?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&exe_path_buf, perms).map_err(|e| e.to_string())?;
+        }
+
+        let exe_path_str = exe_path_buf.to_string_lossy().to_string();
+
+        // Update settings in Ludusavi config
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        api.config.apps.rclone.path = ludusavi::prelude::StrictPath::new(exe_path_str.clone());
+        api.config.save();
+
+        Ok(exe_path_str)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn configure_cloud_remote(_app: tauri::AppHandle, provider: String, email: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        
+        if !api.config.apps.rclone.is_valid() {
+            return Err("Executável do Rclone não configurado ou inválido nas Configurações.".to_string());
+        }
+
+        let remote_choice = match provider.as_str() {
+            "Google Drive" => ludusavi::cloud::RemoteChoice::GoogleDrive,
+            "OneDrive" => ludusavi::cloud::RemoteChoice::OneDrive,
+            "Dropbox" => ludusavi::cloud::RemoteChoice::Dropbox,
+            "WebDAV" => ludusavi::cloud::RemoteChoice::WebDav,
+            "FTP" => ludusavi::cloud::RemoteChoice::Ftp,
+            _ => return Err(format!("Provedor desconhecido: {}", provider)),
+        };
+
+        let remote = ludusavi::cloud::Remote::try_from(remote_choice)
+            .map_err(|_| "Falha ao criar instância remota".to_string())?;
+
+        let rclone = ludusavi::cloud::Rclone::new(api.config.apps.rclone.clone(), remote.clone());
+        
+        // This will block and trigger OAuth browser authorization
+        rclone.configure_remote().map_err(|e| format!("Falha ao configurar remoto no Rclone: {:?}", e))?;
+        
+        // Update config
+        api.config.cloud.remote = Some(remote);
+        let sanitized_email = email.replace(|c: char| !c.is_alphanumeric() && c != '@' && c != '.', "_");
+        api.config.cloud.path = format!("ludocard-backup/{}", sanitized_email);
+        api.config.cloud.synchronize = true;
+        
+        api.config.save();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn test_cloud_connection(app: tauri::AppHandle) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        
+        if !api.config.apps.rclone.is_valid() {
+            return Err("Executável do Rclone não configurado ou inválido nas Configurações.".to_string());
+        }
+
+        let Some(remote) = api.config.cloud.remote.clone() else {
+            return Err("Nenhum provedor de nuvem conectado. Vincule uma conta primeiro.".to_string());
+        };
+
+        let cloud_path = &api.config.cloud.path;
+        if cloud_path.is_empty() {
+            return Err("Caminho de nuvem vazio.".to_string());
+        }
+
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+        let local_test_file = app_data_dir.join("ludocard_test.tmp");
+        
+        // 1. Create local test file
+        std::fs::write(&local_test_file, "ludocard-cloud-sync-test-content")
+            .map_err(|e| format!("Falha ao criar arquivo de teste local: {}", e))?;
+
+        let remote_test_path = format!("{}:{}/ludocard_test.tmp", remote.id(), cloud_path.replace('\\', "/"));
+
+        let run_rclone = |args: &[&str]| -> Result<(), String> {
+            let mut command = std::process::Command::new(api.config.apps.rclone.path.raw());
+            command.args(args);
+            
+            if !api.config.apps.rclone.arguments.is_empty() {
+                if let Some(parts) = shlex::split(&api.config.apps.rclone.arguments) {
+                    command.args(parts);
+                }
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                command.creation_flags(0x08000000);
+            }
+
+            let output = command.output().map_err(|e| format!("Erro ao iniciar Rclone: {}", e))?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Erro no Rclone: {}", stderr));
+            }
+            Ok(())
+        };
+
+        // 2. Upload
+        let upload_res = run_rclone(&["copyto", &local_test_file.to_string_lossy(), &remote_test_path]);
+        if let Err(e) = upload_res {
+            let _ = std::fs::remove_file(&local_test_file);
+            return Err(format!("Falha no upload do arquivo de teste: {}", e));
+        }
+
+        let _ = std::fs::remove_file(&local_test_file);
+
+        // 3. Download back to verify
+        let local_downloaded_file = app_data_dir.join("ludocard_test_downloaded.tmp");
+        let download_res = run_rclone(&["copyto", &remote_test_path, &local_downloaded_file.to_string_lossy()]);
+        if let Err(e) = download_res {
+            let _ = run_rclone(&["deletefile", &remote_test_path]);
+            return Err(format!("Falha no download do arquivo de teste: {}", e));
+        }
+
+        let content = std::fs::read_to_string(&local_downloaded_file)
+            .map_err(|e| format!("Falha ao ler arquivo baixado: {}", e))?;
+        
+        let _ = std::fs::remove_file(&local_downloaded_file);
+        
+        // 4. Delete remote
+        let delete_res = run_rclone(&["deletefile", &remote_test_path]);
+        if let Err(e) = delete_res {
+            return Err(format!("Falha ao remover arquivo de teste remoto: {}", e));
+        }
+
+        if content != "ludocard-cloud-sync-test-content" {
+            return Err("Conteúdo corrompido durante o teste.".to_string());
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 
 

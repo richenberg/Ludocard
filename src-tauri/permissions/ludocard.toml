@@ -45,6 +45,9 @@ commands.allow = [
   "export_local_preset_archive",
   "add_emulator",
   "remove_emulator",
-  "get_emulators"
+  "get_emulators",
+  "download_rclone",
+  "configure_cloud_remote",
+  "test_cloud_connection"
 ]
 

@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
@@ -78,6 +79,7 @@ function StatusPill({
   onIcon: typeof Cloud
   offIcon: typeof CloudOff
 }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
       <span className="flex items-center gap-2 text-sm">
@@ -94,7 +96,7 @@ function StatusPill({
           active ? "text-primary" : "text-muted-foreground",
         )}
       >
-        {active ? "Ativo" : "Desativado"}
+        {active ? t("ludocard-active", "Ativo") : t("ludocard-disabled", "Desativado")}
       </span>
     </div>
   )
@@ -106,6 +108,7 @@ interface GameDetailClientProps {
 }
 
 export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
+  const { t } = useI18n()
   // Tabs & safety backup check
   const [activeTab, setActiveTab] = useState<"saves" | "presets">("saves")
   const [hasCrashSafetyBackup, setHasCrashSafetyBackup] = useState(false)
@@ -910,7 +913,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <div className="flex flex-wrap items-center gap-2">
               <PlatformBadge platform={game.platform} emulator={game.emulator} />
               <span className="text-xs text-muted-foreground">
-                {game.backups.length} versões salvas
+                {game.backups.length} {t("ludocard-saved-versions", "versões salvas")}
               </span>
             </div>
             <h2 className="text-balance text-2xl font-bold leading-tight sm:text-3xl">
@@ -927,14 +930,14 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleBackup}>
                 <ArrowUpToLine data-icon="inline-start" />
-                Fazer backup agora
+                {t("ludocard-backup-now", "Fazer backup agora")}
               </Button>
               <Button
                 variant="secondary"
                 onClick={handleRestoreLatest}
               >
                 <ArrowDownToLine data-icon="inline-start" />
-                Restaurar última
+                {t("ludocard-restore-latest", "Restaurar última")}
               </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
@@ -942,38 +945,38 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenFolder("game")}
-                title="Abrir pasta de instalação do jogo no Windows Explorer"
+                title={t("ludocard-open-game-folder-desc", "Abrir pasta de instalação do jogo no Windows Explorer")}
               >
                 <Folder className="size-3.5" data-icon="inline-start" />
-                Pasta do Jogo
+                {t("ludocard-game-folder", "Pasta do Jogo")}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenFolder("save")}
-                title="Abrir pasta onde os saves ativos ficam armazenados"
+                title={t("ludocard-open-save-folder-desc", "Abrir pasta onde os saves ativos ficam armazenados")}
               >
                 <FolderSync className="size-3.5" data-icon="inline-start" />
-                Pasta do Save
+                {t("ludocard-save-folder", "Pasta do Save")}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenFolder("backup")}
-                title="Abrir pasta de backup de saves do Ludocard"
+                title={t("ludocard-open-backup-folder-desc", "Abrir pasta de backup de saves do Ludocard")}
               >
                 <Package className="size-3.5" data-icon="inline-start" />
-                Pasta de Backups
+                {t("ludocard-backup-folder", "Pasta de Backups")}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleExportSave}
-                title="Exportar save como arquivo .ludocard compactado para compartilhar"
+                title={t("ludocard-export-save-desc", "Exportar save como arquivo .ludocard compactado para compartilhar")}
                 className="border-primary/30 text-primary hover:bg-primary/10"
               >
                 <Share2 className="size-3.5" data-icon="inline-start" />
-                Exportar Save (.ludocard)
+                {t("ludocard-export-save", "Exportar Save (.ludocard)")}
               </Button>
             </div>
           </div>
@@ -985,32 +988,32 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         <div className="flex flex-col gap-4 lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Status</CardTitle>
+              <CardTitle className="text-base">{t("ludocard-status", "Status")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2.5">
               <StatusPill
                 active={game.autoBackup}
-                label="Backup automático"
+                label={t("ludocard-file-watcher", "Backup automático")}
                 onIcon={Zap}
                 offIcon={Zap}
               />
               <StatusPill
                 active={game.cloudSync}
-                label="Sincronização na nuvem"
+                label={t("ludocard-cloud-sync", "Sincronização na nuvem")}
                 onIcon={Cloud}
                 offIcon={CloudOff}
               />
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <HardDrive className="size-4 text-muted-foreground" />
-                  Saves no PC
+                  {t("ludocard-saves-on-pc", "Saves no PC")}
                 </span>
                 <span className="text-xs font-medium">{formatSize(game.sizeMB)}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm">
                   <Package className="size-4 text-muted-foreground" />
-                  Total em backups
+                  {t("ludocard-total-backups", "Total em backups")}
                 </span>
                 <span className="text-xs font-medium">{formatSize(game.backupsSizeMB || 0)}</span>
               </div>
@@ -1019,18 +1022,18 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Preferências rápidas</CardTitle>
+              <CardTitle className="text-base">{t("ludocard-quick-preferences", "Preferências rápidas")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <label className="flex items-center justify-between gap-2">
-                <span className="text-sm">Backup automático</span>
+                <span className="text-sm">{t("ludocard-file-watcher", "Backup automático")}</span>
                 <Switch
                   checked={game.autoBackup}
                   disabled={true} /* Controlled by main settings config */
                 />
               </label>
               <label className="flex items-center justify-between gap-2">
-                <span className="text-sm">Enviar para a nuvem</span>
+                <span className="text-sm">{t("ludocard-cloud-sync", "Enviar para a nuvem")}</span>
                 <Switch
                   checked={game.cloudSync}
                   disabled={true} /* Controlled by main settings config */
@@ -1051,7 +1054,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   <SlidersHorizontal className="size-4 text-primary" />
                 )}
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/90">
-                  {activeTab === "saves" ? "Histórico de Saves" : "Presets de Configuração"}
+                  {activeTab === "saves" ? t("ludocard-save-history", "Histórico de Saves") : t("ludocard-config-presets", "Presets de Configuração")}
                 </CardTitle>
               </div>
 
@@ -1066,7 +1069,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  Linha do Tempo (Saves)
+                  {t("ludocard-saves-timeline", "Linha do Tempo (Saves)")}
                 </button>
                 <button
                   onClick={() => setActiveTab("presets")}
@@ -1077,7 +1080,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  Presets & Configurações
+                  {t("ludocard-presets-configs", "Presets & Configurações")}
                 </button>
               </div>
             </div>
@@ -1092,9 +1095,9 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                     <EmptyMedia variant="icon">
                       <CloudOff />
                     </EmptyMedia>
-                    <EmptyTitle>Nenhum backup ainda</EmptyTitle>
+                    <EmptyTitle>{t("ludocard-no-backups-yet", "Nenhum backup ainda")}</EmptyTitle>
                     <EmptyDescription>
-                      Faça o primeiro backup deste jogo para começar a linha do tempo.
+                      {t("ludocard-do-first-backup-desc", "Faça o primeiro backup deste jogo para começar a linha do tempo.")}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

@@ -1,51 +1,79 @@
-import { useState } from "react"
-import { ArrowUpToLine, Loader2 } from "lucide-react"
-import { AppShell } from "@/components/app-shell"
-import { Button } from "@/components/ui/button"
-import { LibraryClient } from "@/components/dashboard/library-client"
-import { useLibrary } from "@/lib/library-context"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
+import { ArrowUpToLine, Loader2, ChevronDown, HardDrive, Cloud } from "lucide-react"
 import { useI18n } from "@/lib/i18n"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { LibraryClient } from "@/components/dashboard/library-client"
+import { AppShell } from "@/components/app-shell"
+import { useLibrary } from "@/lib/library-context"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
 export default function Dashboard() {
-  const { games, loadGames } = useLibrary()
   const { t } = useI18n()
-  const [selected, setSelected] = useState<Record<string, boolean>>({})
-  const [backingUp, setBackingUp] = useState(false)
+  const { games } = useLibrary()
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [backingUp, setBackingUp] = useState(false);
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
 
-  const selectedCount = Object.values(selected).filter(Boolean).length
-
-  const handleBackupSelected = async () => {
-    const gamesToBackup = selectedCount > 0 ? games.filter(g => selected[g.id]) : games;
-    if (gamesToBackup.length === 0) return;
-
-    setBackingUp(true);
-    const toastId = toast.loading(t("ludocard-toast-backing-up", "Fazendo backup de saves..."));
-    try {
+  // Load cloud sync status
+  useEffect(() => {
+    const checkCloudSync = async () => {
       if (isTauri) {
-        const { invoke } = await import("@tauri-apps/api/core");
-        for (const game of gamesToBackup) {
-          await invoke("backup_game", { gameTitle: game.title });
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const s = await invoke<any>("get_settings");
+          setCloudSyncEnabled(s.cloudSync || false);
+        } catch (e) {
+          console.error(e);
         }
-        toast.success(
-          selectedCount > 0
-            ? t("ludocard-toast-backup-selected-success", "Backup concluído para os jogos selecionados!")
-            : t("ludocard-toast-backup-all-success", "Backup concluído para todos os jogos!"),
-          { id: toastId }
-        );
-        loadGames(true);
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        toast.success(
-          selectedCount > 0
-            ? `[Mock] ${t("ludocard-toast-backup-selected-success", "Backup concluído para os jogos selecionados!")}`
-            : `[Mock] ${t("ludocard-toast-backup-all-success", "Backup concluído para todos os jogos!")}`,
-          { id: toastId }
-        );
       }
-      setSelected({}); // Clear selection after backup
+    };
+    checkCloudSync();
+  }, []);
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  const handleBackupSelected = async (target: "local" | "cloud" = "local") => {
+    setBackingUp(true);
+    const toastId = toast.loading(
+      target === "cloud"
+        ? "Fazendo backup e sincronizando com a nuvem..."
+        : t("ludocard-toast-backing-up", "Fazendo backup dos jogos selecionados...")
+    );
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const selectedIds = Object.keys(selected).filter((id) => selected[id]);
+      const gamesToBackup = selectedIds.length > 0 
+        ? games.filter((g) => selected[g.id]) 
+        : games;
+      
+      for (const game of gamesToBackup) {
+        const message = (target === "cloud" || cloudSyncEnabled)
+          ? `[${game.title}] Criando backup local e enviando para a nuvem...`
+          : `[${game.title}] Criando backup local...`;
+        toast.loading(message, { id: toastId });
+        await invoke("backup_game", { gameTitle: game.title });
+      }
+
+      if (target === "cloud") {
+        // Run test/upload connection check to trigger sync or confirm everything uploaded
+        try {
+          await invoke("test_cloud_connection");
+          toast.success("Backup e upload para nuvem concluídos com sucesso!", { id: toastId });
+        } catch (cloudErr) {
+          toast.warning("Backup local concluído, mas falhou ao enviar para a nuvem.", { id: toastId });
+        }
+      } else {
+        toast.success(t("ludocard-toast-backup-success", "Backup concluído com sucesso!"), { id: toastId });
+      }
     } catch (err) {
       toast.error(`${t("ludocard-toast-backup-failed", "Falha no backup:")} ${err}`, { id: toastId });
     } finally {
@@ -53,29 +81,68 @@ export default function Dashboard() {
     }
   };
 
+  const backupButtonLabel = selectedCount > 0
+    ? `${t("button-backup", "Fazer backup")} (${selectedCount}/${games.length})`
+    : `${t("ludocard-backup-all", "Fazer backup de todos")} (${games.length}/${games.length})`;
+
+  const renderActions = () => {
+    if (cloudSyncEnabled) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div
+              className={cn(
+                buttonVariants({ variant: "default" }),
+                "flex items-center gap-1.5 cursor-pointer focus:outline-none",
+                (backingUp || games.length === 0) ? "pointer-events-none opacity-50" : ""
+              )}
+            >
+              {backingUp ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ArrowUpToLine />
+              )}
+              {backupButtonLabel}
+              <ChevronDown className="size-4 ml-1 opacity-70" />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-popover/95 backdrop-blur-md border border-border">
+            <DropdownMenuItem onClick={() => handleBackupSelected("local")}>
+              <HardDrive className="size-4 mr-2 text-primary" />
+              <span>Fazer Backup Local</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleBackupSelected("cloud")}>
+              <Cloud className="size-4 mr-2 text-primary" />
+              <span>Sincronizar com a Nuvem</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+
+    return (
+      <Button
+        disabled={backingUp || games.length === 0}
+        onClick={() => handleBackupSelected("local")}
+        variant="default"
+      >
+        {backingUp ? (
+          <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+        ) : (
+          <ArrowUpToLine data-icon="inline-start" />
+        )}
+        {backupButtonLabel}
+      </Button>
+    )
+  };
+
   return (
     <AppShell
       title={t("ludocard-library", "Biblioteca")}
       description={t("ludocard-dashboard-desc", "Gerencie e proteja os saves dos seus jogos")}
-      actions={
-        <Button
-          disabled={backingUp || games.length === 0}
-          onClick={handleBackupSelected}
-          variant="default"
-        >
-          {backingUp ? (
-            <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
-          ) : (
-            <ArrowUpToLine data-icon="inline-start" />
-          )}
-          {selectedCount > 0
-            ? `${t("button-backup", "Fazer backup")} (${selectedCount}/${games.length})`
-            : `${t("ludocard-backup-all", "Fazer backup de todos")} (${games.length}/${games.length})`}
-        </Button>
-      }
+      actions={renderActions()}
     >
       <LibraryClient selected={selected} setSelected={setSelected} />
     </AppShell>
   )
 }
-

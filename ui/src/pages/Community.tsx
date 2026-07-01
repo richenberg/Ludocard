@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { useLibrary } from "@/lib/library-context"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n"
 
 const isTauri =
   typeof window !== "undefined" &&
@@ -34,24 +35,24 @@ interface TagInfo {
   description: string
 }
 
-const PREDEFINED_TAGS: TagInfo[] = [
-  { name: "100%", description: "Jogo 100% concluído com todas as conquistas, itens e colecionáveis liberados." },
-  { name: "DLC1", description: "Progresso focado ou pronto para iniciar a primeira DLC do jogo." },
-  { name: "DLC2", description: "Progresso focado ou pronto para iniciar a segunda DLC do jogo." },
-  { name: "New Game+", description: "Jogo pronto para iniciar ou já iniciado no modo Novo Jogo+." },
-  { name: "Vanilla", description: "Progresso do jogo base totalmente limpo, sem modificadores, mods ou trapaças." },
-  { name: "Modded", description: "Progresso obtido utilizando modificações (mods) que podem alterar a gameplay." },
-  { name: "Boss Prep", description: "Save posicionado estrategicamente logo antes de um chefe importante do jogo." },
-  { name: "Starter", description: "Save no início do jogo, com recursos acumulados ou com tutorial pulado." },
-  { name: "Clean Start", description: "Savegame logo após a criação de personagem ou introdução, pronto para jogar direto do início real." },
-  { name: "Mid-Game", description: "Save posicionado no meio da campanha principal (ótimo para quem perdeu o progresso)." },
-  { name: "Post-Game", description: "Campanha concluída, ideal para exploração de bosses secretos, conquistas pendentes ou atividades secundárias." },
-  { name: "OP Build", description: "Savegame focado em um personagem com equipamentos, nível e builds extremamente fortes (Overpowered)." },
-  { name: "Unlimited Cash", description: "Save focado em ter dinheiro, moedas ou recursos de upgrades máximos ou infinitos." },
-  { name: "All Collectibles", description: "Save com foco em conquistas secundárias e colecionáveis cansativos totalmente liberados." },
-  { name: "Hardcore", description: "Saves em dificuldades extremas ou com morte permanente ativada (sobrevivência extrema)." },
-  { name: "Speedrun Ready", description: "Save ideal para treinar trechos de speedruns ou posicionado nas rotas mais rápidas." },
-  { name: "Legit", description: "Progresso obtido de forma limpa, sem cheats, códigos de trapaça ou aproveitamento de bugs (glitches)." }
+const getPredefinedTags = (t: any): TagInfo[] => [
+  { name: "100%", description: t("ludocard-tag-desc-100", "Jogo 100% concluído com todas as conquistas, itens e colecionáveis liberados.") },
+  { name: "DLC1", description: t("ludocard-tag-desc-dlc1", "Progresso focado ou pronto para iniciar a primeira DLC do jogo.") },
+  { name: "DLC2", description: t("ludocard-tag-desc-dlc2", "Progresso focado ou pronto para iniciar a segunda DLC do jogo.") },
+  { name: "New Game+", description: t("ludocard-tag-desc-ngplus", "Jogo pronto para iniciar ou já iniciado no modo Novo Jogo+.") },
+  { name: "Vanilla", description: t("ludocard-tag-desc-vanilla", "Progresso do jogo base totalmente limpo, sem modificadores, mods ou trapaças.") },
+  { name: "Modded", description: t("ludocard-tag-desc-modded", "Progresso obtido utilizando modificações (mods) que podem alterar a gameplay.") },
+  { name: "Boss Prep", description: t("ludocard-tag-desc-bossprep", "Save posicionado estrategicamente logo antes de um chefe importante do jogo.") },
+  { name: "Starter", description: t("ludocard-tag-desc-starter", "Save no início do jogo, com recursos acumulados ou com tutorial pulado.") },
+  { name: "Clean Start", description: t("ludocard-tag-desc-cleanstart", "Savegame logo após a criação de personagem ou introdução, pronto para jogar direto do início real.") },
+  { name: "Mid-Game", description: t("ludocard-tag-desc-midgame", "Save posicionado no meio da campanha principal (ótimo para quem perdeu o progresso).") },
+  { name: "Post-Game", description: t("ludocard-tag-desc-postgame", "Campanha concluída, ideal para exploração de bosses secretos, conquistas pendentes ou atividades secundárias.") },
+  { name: "OP Build", description: t("ludocard-tag-desc-opbuild", "Savegame focado em um personagem com equipamentos, nível e builds extremamente fortes (Overpowered).") },
+  { name: "Unlimited Cash", description: t("ludocard-tag-desc-unlimitedcash", "Save focado em ter dinheiro, moedas ou recursos de upgrades máximos ou infinitos.") },
+  { name: "All Collectibles", description: t("ludocard-tag-desc-allcollectibles", "Save com foco em conquistas secundárias e colecionáveis cansativos totalmente liberados.") },
+  { name: "Hardcore", description: t("ludocard-tag-desc-hardcore", "Saves em dificuldades extremas ou com morte permanente ativada (sobrevivência extrema).") },
+  { name: "Speedrun Ready", description: t("ludocard-tag-desc-speedrunready", "Save ideal para treinar trechos de speedruns ou posicionado nas rotas mais rápidas.") },
+  { name: "Legit", description: t("ludocard-tag-desc-legit", "Progresso obtido de forma limpa, sem cheats, códigos de trapaça ou aproveitamento de bugs (glitches).") }
 ]
 
 interface CommunityCheckpoint {
@@ -77,20 +78,22 @@ function formatCompactSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatRelativeDate(isoDate: string): string {
+function formatRelativeDate(isoDate: string, t: any): string {
   const date = new Date(isoDate)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return "Hoje"
-  if (diffDays === 1) return "Ontem"
-  if (diffDays < 7) return `${diffDays} dias atrás`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} semanas atrás`
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+  if (diffDays === 0) return t("ludocard-date-today", "Hoje")
+  if (diffDays === 1) return t("ludocard-date-yesterday", "Ontem")
+  if (diffDays < 7) return `${diffDays} ${t("ludocard-date-days-ago", "dias atrás")}`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} ${t("ludocard-date-weeks-ago", "semanas atrás")}`
+  return date.toLocaleDateString(t("ludocard-date-locale", "pt-BR"), { day: "2-digit", month: "short", year: "numeric" })
 }
 
 export default function Community() {
+  const { t } = useI18n()
   const { games } = useLibrary()
+  const PREDEFINED_TAGS = getPredefinedTags(t)
 
   // Search, sort, checkpoints
   const [checkpoints, setCheckpoints] = useState<CommunityCheckpoint[]>([])
@@ -434,13 +437,13 @@ export default function Community() {
 
   return (
     <AppShell
-      title="Save Share HUB"
-      description="Compartilhe e baixe checkpoints de saves da comunidade"
+      title={t("ludocard-community-title", "Save Share HUB")}
+      description={t("ludocard-community-desc", "Compartilhe e baixe checkpoints de saves da comunidade")}
       actions={
         isConfigured && (
           <Button size="sm" onClick={() => setIsShareModalOpen(true)}>
             <Upload data-icon="inline-start" />
-            Compartilhar Checkpoint
+            {t("ludocard-btn-share-checkpoint", "Compartilhar Checkpoint")}
           </Button>
         )
       }
@@ -451,17 +454,17 @@ export default function Community() {
             <Database className="size-6 animate-pulse" />
           </div>
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-bold">Repositório Comunitário Desconectado</h2>
+            <h2 className="text-lg font-bold">{t("ludocard-repo-disconnected", "Repositório Comunitário Desconectado")}</h2>
             <p className="text-sm text-muted-foreground">
-              Para carregar os checkpoints comunitários e compartilhar os seus, você precisa configurar a URL do seu Supabase e a Anon Key pública na aba de Configurações.
+              {t("ludocard-repo-disconnected-desc", "Para carregar os checkpoints comunitários e compartilhar os seus, você precisa configurar a URL do seu Supabase e a Anon Key pública na aba de Configurações.")}
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full border-t border-border pt-4 text-xs text-left text-muted-foreground gap-2">
-            <span className="font-semibold text-foreground">Como configurar:</span>
+            <span className="font-semibold text-foreground">{t("ludocard-how-to-config", "Como configurar:")}</span>
             <ol className="list-decimal pl-4 flex flex-col gap-1">
-              <li>Crie um projeto gratuito no <strong>Supabase</strong>.</li>
-              <li>Crie as tabelas executando o script SQL que geramos no arquivo <code className="font-mono text-primary bg-primary/10 px-1 rounded">supabase/schema.sql</code>.</li>
-              <li>Insira a URL da API e a Anon Key pública nas <strong>Configurações</strong> do Ludocard.</li>
+              <li>{t("ludocard-config-step-1", "Crie um projeto gratuito no Supabase.")}</li>
+              <li>{t("ludocard-config-step-2", "Crie as tabelas executando o script SQL que geramos no arquivo supabase/schema.sql.")}</li>
+              <li>{t("ludocard-config-step-3", "Insira a URL da API e a Anon Key pública nas Configurações do Ludocard.")}</li>
             </ol>
           </div>
         </div>
@@ -475,7 +478,7 @@ export default function Community() {
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-bold leading-none">{checkpoints.length}</span>
-                <span className="text-[11px] text-muted-foreground">Checkpoints</span>
+                <span className="text-[11px] text-muted-foreground">{t("ludocard-checkpoints", "Checkpoints")}</span>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
@@ -487,7 +490,7 @@ export default function Community() {
                   {new Set(checkpoints.map(c => c.userUuid)).size}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  Contribuidores
+                  {t("ludocard-contributors", "Contribuidores")}
                 </span>
               </div>
             </div>
@@ -499,7 +502,7 @@ export default function Community() {
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="community-search"
-                placeholder="Buscar por jogo ou checkpoint..."
+                placeholder={t("ludocard-search-placeholder", "Buscar por jogo ou checkpoint...")}
                 className="pl-9"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -512,7 +515,7 @@ export default function Community() {
                 onClick={() => setSortMode("popular")}
               >
                 <TrendingUp className="size-3.5" data-icon="inline-start" />
-                Popular
+                {t("ludocard-sort-popular", "Popular")}
               </Button>
               <Button
                 variant={sortMode === "recent" ? "secondary" : "ghost"}
@@ -520,7 +523,7 @@ export default function Community() {
                 onClick={() => setSortMode("recent")}
               >
                 <Clock className="size-3.5" data-icon="inline-start" />
-                Recentes
+                {t("ludocard-sort-recent-hub", "Recentes")}
               </Button>
               <Button
                 variant={sortMode === "size" ? "secondary" : "ghost"}
@@ -528,7 +531,7 @@ export default function Community() {
                 onClick={() => setSortMode("size")}
               >
                 <Package className="size-3.5" data-icon="inline-start" />
-                Tamanho
+                {t("ludocard-sort-size-hub", "Tamanho")}
               </Button>
             </div>
           </div>
@@ -537,7 +540,7 @@ export default function Community() {
           {loading ? (
             <div className="flex h-[300px] flex-col items-center justify-center gap-2">
               <RefreshCw className="size-7 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">Sincronizando com o repositório público...</span>
+              <span className="text-sm text-muted-foreground">{t("ludocard-syncing-repo", "Sincronizando com o repositório público...")}</span>
             </div>
           ) : sortedCheckpoints.length === 0 ? (
             <Empty>
@@ -546,10 +549,10 @@ export default function Community() {
                   <Globe />
                 </EmptyMedia>
                 <EmptyTitle>
-                  {searchQuery ? "Nenhum checkpoint encontrado" : "Nenhum checkpoint disponível"}
+                  {searchQuery ? t("ludocard-no-checkpoints-found", "Nenhum checkpoint encontrado") : t("ludocard-no-checkpoints-available", "Nenhum checkpoint disponível")}
                 </EmptyTitle>
                 <EmptyDescription>
-                  {searchQuery ? "Tente buscar com outros termos." : "Seja o primeiro a compartilhar um save da comunidade!"}
+                  {searchQuery ? t("ludocard-search-terms-desc", "Tente buscar com outros termos.") : t("ludocard-be-first-desc", "Seja o primeiro a compartilhar um save da comunidade!")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -605,7 +608,7 @@ export default function Community() {
                         </div>
 
                         <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground mt-0.5">
-                          {cp.description || "Nenhuma descrição detalhada fornecida."}
+                          {cp.description || t("ludocard-no-desc-provided", "Nenhuma descrição detalhada fornecida.")}
                         </p>
 
                         {/* Meta row */}
@@ -616,10 +619,10 @@ export default function Community() {
                           </Badge>
                           <Badge variant="outline" className="text-[10px]">
                             <Download className="mr-1 size-2.5" />
-                            {cp.downloadsCount.toLocaleString("pt-BR")}
+                            {cp.downloadsCount.toLocaleString(t("ludocard-date-locale", "pt-BR"))}
                           </Badge>
                           <span className="text-[10px] text-muted-foreground">
-                            por <strong className="text-foreground">{cp.authorName}</strong> • {formatRelativeDate(cp.createdAt)}
+                            {t("ludocard-author-by", "por")} <strong className="text-foreground">{cp.authorName}</strong> • {formatRelativeDate(cp.createdAt, t)}
                           </span>
                         </div>
                       </div>
@@ -629,7 +632,7 @@ export default function Community() {
                     <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2">
                       <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         <FileCheck className="size-3 text-emerald-400" />
-                        <span>Contém metadados zstd verificados</span>
+                        <span>{t("ludocard-zstd-verified", "Contém metadados zstd verificados")}</span>
                       </span>
                       <Button
                         size="sm"
@@ -640,12 +643,12 @@ export default function Community() {
                         {importing === cp.id ? (
                           <>
                             <RefreshCw className="size-3 animate-spin" data-icon="inline-start" />
-                            Instalando...
+                            {t("ludocard-btn-installing", "Instalando...")}
                           </>
                         ) : (
                           <>
                             <Download className="size-3" data-icon="inline-start" />
-                            Instalar
+                            {t("ludocard-btn-install", "Instalar")}
                           </>
                         )}
                       </Button>
@@ -662,10 +665,10 @@ export default function Community() {
               <Shield className="mt-0.5 size-4 shrink-0 text-amber-400" />
               <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">
-                  Segurança Automática do Seguro-Crash e Sandbox
+                  {t("ludocard-security-sandbox-title", "Segurança Automática do Seguro-Crash e Sandbox")}
                 </span>
                 <span>
-                  Ao instalar um checkpoint da comunidade, o Ludocard automaticamente cria um backup de segurança do seu save atual antes de sobrescrever. Se algo der errado, é só restaurar o backup anterior no histórico.
+                  {t("ludocard-security-sandbox-desc", "Ao instalar um checkpoint da comunidade, o Ludocard automaticamente cria um backup de segurança do seu save atual antes de sobrescrever. Se algo der errado, é só restaurar o backup anterior no histórico.")}
                 </span>
               </div>
             </div>
@@ -679,8 +682,8 @@ export default function Community() {
           <Card className="w-full max-w-lg shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 !overflow-visible">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
               <div>
-                <CardTitle className="text-base">Compartilhar Checkpoint</CardTitle>
-                <CardDescription className="text-xs">Publique o seu arquivo de progresso para a comunidade.</CardDescription>
+                <CardTitle className="text-base">{t("ludocard-share-checkpoint-modal", "Compartilhar Checkpoint")}</CardTitle>
+                <CardDescription className="text-xs">{t("ludocard-publish-progress-desc", "Publique o seu arquivo de progresso para a comunidade.")}</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -695,13 +698,13 @@ export default function Community() {
               <form onSubmit={handlePublish} className="flex flex-col gap-4">
                 {/* Searchable Game Selector */}
                 <div className="flex flex-col gap-1.5 relative">
-                  <label className="text-xs font-semibold text-muted-foreground">Jogo do Save *</label>
+                  <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-save-game-label", "Jogo do Save *")}</label>
 
                   {!selectedGameId ? (
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Digite para pesquisar um jogo instalado..."
+                        placeholder={t("ludocard-search-installed-game", "Digite para pesquisar um jogo instalado...")}
                         value={gameSearchQuery}
                         onChange={(e) => {
                           setGameSearchQuery(e.target.value)
@@ -716,7 +719,7 @@ export default function Community() {
                           {games
                             .filter(g => g.installed && (!gameSearchQuery || g.title.toLowerCase().includes(gameSearchQuery.toLowerCase())))
                             .length === 0 ? (
-                            <div className="py-2 px-3 text-xs text-muted-foreground">Nenhum jogo encontrado</div>
+                            <div className="py-2 px-3 text-xs text-muted-foreground">{t("ludocard-no-games-found", "Nenhum jogo encontrado")}</div>
                           ) : (
                             games
                               .filter(g => g.installed && (!gameSearchQuery || g.title.toLowerCase().includes(gameSearchQuery.toLowerCase())))
@@ -762,10 +765,10 @@ export default function Community() {
                 {/* Backup version Selector */}
                 {selectedGameId && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Versão do Backup *</label>
+                    <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-backup-version-label", "Versão do Backup *")}</label>
                     {games.find(g => g.id === selectedGameId)?.backups.length === 0 ? (
                       <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 p-2.5 rounded-lg">
-                        Nenhum backup local feito para este jogo ainda. Crie um backup no card do jogo primeiro.
+                        {t("ludocard-no-local-backups-desc", "Nenhum backup local feito para este jogo ainda. Crie um backup no card do jogo primeiro.")}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto border border-border/80 rounded-md bg-muted/10 p-2.5">
@@ -791,7 +794,7 @@ export default function Community() {
                                     onChange={() => setSelectedBackupId(b.id)}
                                     className="size-3.5 text-primary border-border bg-muted focus:ring-primary focus:ring-1"
                                   />
-                                  <span className="font-semibold text-foreground">{b.date} às {b.time}</span>
+                                  <span className="font-semibold text-foreground">{b.date} {t("ludocard-of", "às")} {b.time}</span>
                                   <span className="text-[10px] text-muted-foreground">({b.kind})</span>
                                 </div>
                                 <span className="font-mono text-[10px] text-muted-foreground">{formatCompactSize(b.sizeMB * 1024 * 1024)}</span>
@@ -805,11 +808,11 @@ export default function Community() {
 
                 <div className="grid gap-3.5 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="checkpoint-title" className="text-xs font-semibold text-muted-foreground">Título do Checkpoint *</label>
+                    <label htmlFor="checkpoint-title" className="text-xs font-semibold text-muted-foreground">{t("ludocard-checkpoint-title-label", "Título do Checkpoint *")}</label>
                     <input
                       id="checkpoint-title"
                       type="text"
-                      placeholder="Ex: Antes da Malênia ou Level 100 100% Completo"
+                      placeholder={t("ludocard-checkpoint-title-placeholder", "Ex: Antes da Malênia ou Level 100 100% Completo")}
                       value={checkpointTitle}
                       onChange={(e) => setCheckpointTitle(e.target.value)}
                       required
@@ -817,11 +820,11 @@ export default function Community() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="checkpoint-author" className="text-xs font-semibold text-muted-foreground">Nome do Autor</label>
+                    <label htmlFor="checkpoint-author" className="text-xs font-semibold text-muted-foreground">{t("ludocard-checkpoint-author-label", "Nome do Autor")}</label>
                     <input
                       id="checkpoint-author"
                       type="text"
-                      placeholder="Ex: Anônimo"
+                      placeholder={t("ludocard-checkpoint-author-placeholder", "Ex: Anônimo")}
                       value={authorName}
                       onChange={(e) => setAuthorName(e.target.value)}
                       className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -830,11 +833,11 @@ export default function Community() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="checkpoint-desc" className="text-xs font-semibold text-muted-foreground">Descrição / Notas Adicionais</label>
+                  <label htmlFor="checkpoint-desc" className="text-xs font-semibold text-muted-foreground">{t("ludocard-checkpoint-desc-label", "Descrição / Notas Adicionais")}</label>
                   <textarea
                     id="checkpoint-desc"
                     rows={3}
-                    placeholder="Descreva detalhes como build, nível, itens importantes ou o momento do progresso."
+                    placeholder={t("ludocard-checkpoint-desc-placeholder", "Descreva detalhes como build, nível, itens importantes ou o momento do progresso.")}
                     value={checkpointDesc}
                     onChange={(e) => setCheckpointDesc(e.target.value)}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -843,7 +846,7 @@ export default function Community() {
 
                 {/* Predefined Tags Selector */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Tags do Checkpoint</label>
+                  <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-checkpoint-tags-label", "Tags do Checkpoint")}</label>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border border-border/80 p-2.5 rounded-md bg-muted/10">
                     {PREDEFINED_TAGS.map(tag => {
                       const active = selectedUploadTags.includes(tag.name)
@@ -880,14 +883,14 @@ export default function Community() {
                     variant="ghost"
                     onClick={() => setIsShareModalOpen(false)}
                   >
-                    Cancelar
+                    {t("ludocard-btn-cancel", "Cancelar")}
                   </Button>
                   <Button
                     type="submit"
                     disabled={uploading || !selectedGameId || !selectedBackupId}
                     className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
                   >
-                    {uploading ? "Publicando..." : "Publicar Checkpoint"}
+                    {uploading ? t("ludocard-btn-publishing", "Publicando...") : t("ludocard-btn-publish", "Publicar Checkpoint")}
                   </Button>
                 </div>
               </form>
@@ -906,7 +909,7 @@ export default function Community() {
                   <Gamepad2 className="size-4.5 text-primary" />
                   {selectedDetailCheckpoint.gameName}
                 </CardTitle>
-                <CardDescription className="text-xs">Visualizando metadados completos do checkpoint.</CardDescription>
+                <CardDescription className="text-xs">{t("ludocard-detail-modal-desc", "Visualizando metadados completos do checkpoint.")}</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -919,13 +922,13 @@ export default function Community() {
             </CardHeader>
             <CardContent className="pt-4 flex flex-col gap-4.5">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-muted-foreground font-semibold">Título do Checkpoint:</span>
+                <span className="text-xs text-muted-foreground font-semibold">{t("ludocard-detail-title-label", "Título do Checkpoint:")}</span>
                 <span className="text-sm font-bold text-foreground leading-snug">{selectedDetailCheckpoint.title}</span>
               </div>
 
               {selectedDetailCheckpoint.description && (
                 <div className="flex flex-col gap-1 bg-muted/20 border border-border p-3 rounded-lg">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Descrição do Progresso:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">{t("ludocard-detail-desc-label", "Descrição do Progresso:")}</span>
                   <div className="max-h-[160px] overflow-y-auto pr-1.5 scrollbar-thin">
                     <p className="text-xs leading-relaxed text-muted-foreground mt-0.5 whitespace-pre-wrap">{selectedDetailCheckpoint.description}</p>
                   </div>
@@ -934,7 +937,7 @@ export default function Community() {
 
               {selectedDetailCheckpoint.tags && selectedDetailCheckpoint.tags.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Marcadores:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">{t("ludocard-detail-tags-label", "Marcadores:")}</span>
                   <div className="flex flex-wrap gap-1">
                     {selectedDetailCheckpoint.tags.map(t => {
                       const info = PREDEFINED_TAGS.find(pt => pt.name === t)
@@ -955,21 +958,21 @@ export default function Community() {
 
               <div className="grid grid-cols-2 gap-3.5 bg-muted/20 border border-border p-3.5 rounded-xl text-xs">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-muted-foreground">Tamanho Comprimido:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-size-label", "Tamanho Comprimido:")}</span>
                   <span className="font-semibold text-foreground">{formatCompactSize(selectedDetailCheckpoint.fileSize)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-muted-foreground">Total Downloads:</span>
-                  <span className="font-semibold text-foreground">{selectedDetailCheckpoint.downloadsCount.toLocaleString("pt-BR")}</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-downloads-label", "Total Downloads:")}</span>
+                  <span className="font-semibold text-foreground">{selectedDetailCheckpoint.downloadsCount.toLocaleString(t("ludocard-date-locale", "pt-BR"))}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Enviado por:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-author-label", "Enviado por:")}</span>
                   <span className="font-semibold text-foreground">{selectedDetailCheckpoint.authorName}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Enviado em:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-date-label", "Enviado em:")}</span>
                   <span className="font-semibold text-foreground">
-                    {new Date(selectedDetailCheckpoint.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                    {new Date(selectedDetailCheckpoint.createdAt).toLocaleDateString(t("ludocard-date-locale", "pt-BR"), { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
               </div>
@@ -979,7 +982,7 @@ export default function Community() {
                   variant="ghost"
                   onClick={() => setSelectedDetailCheckpoint(null)}
                 >
-                  Fechar
+                  {t("ludocard-btn-close", "Fechar")}
                 </Button>
                 <Button
                   disabled={importing === selectedDetailCheckpoint.id}
@@ -992,12 +995,12 @@ export default function Community() {
                   {importing === selectedDetailCheckpoint.id ? (
                     <>
                       <RefreshCw className="size-3.5 animate-spin" />
-                      Instalando...
+                      {t("ludocard-btn-installing", "Instalando...")}
                     </>
                   ) : (
                     <>
                       <Download className="size-3.5" />
-                      Baixar & Instalar
+                      {t("ludocard-btn-download-install", "Baixar & Instalar")}
                     </>
                   )}
                 </Button>

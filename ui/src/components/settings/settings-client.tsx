@@ -70,8 +70,16 @@ export function SettingsClient() {
     Object.fromEntries(games.filter((g) => g.autoBackup).map((g) => [g.id, true])),
   )
 
-  const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-  const [activeDays, setActiveDays] = useState<string[]>(["Seg", "Qua", "Sex"])
+  const weekDays = [
+    { key: "sun", label: t("ludocard-day-sun", "Dom") },
+    { key: "mon", label: t("ludocard-day-mon", "Seg") },
+    { key: "tue", label: t("ludocard-day-tue", "Ter") },
+    { key: "wed", label: t("ludocard-day-wed", "Qua") },
+    { key: "thu", label: t("ludocard-day-thu", "Qui") },
+    { key: "fri", label: t("ludocard-day-fri", "Sex") },
+    { key: "sat", label: t("ludocard-day-sat", "Sáb") }
+  ]
+  const [activeDays, setActiveDays] = useState<string[]>(["mon", "wed", "fri"])
 
   // Real backend settings state
   const [backupPath, setBackupPath] = useState("")
@@ -329,7 +337,7 @@ export function SettingsClient() {
               title={t("ludocard-language", "Idioma")}
               description={t("ludocard-language-desc", "Idioma da interface.")}
               control={
-                <Select value={language} onValueChange={(val) => setLanguage(val)}>
+                <Select value={language} onValueChange={(val) => { if (val) setLanguage(val); }}>
                   <SelectTrigger className="w-40">
                     <SelectValue>
                       {language === "en-US" && "English"}
@@ -457,8 +465,8 @@ export function SettingsClient() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Rotina de saves automáticos</CardTitle>
-              <CardDescription>Defina quando os backups acontecem.</CardDescription>
+              <CardTitle className="text-base">{t("ludocard-schedule-auto-routine", "Rotina de saves automáticos")}</CardTitle>
+              <CardDescription>{t("ludocard-schedule-auto-routine-desc", "Defina quando os backups acontecem.")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
               <ToggleGroup
@@ -470,25 +478,25 @@ export function SettingsClient() {
                 variant="outline"
                 spacing={0}
               >
-                <ToggleGroupItem value="interval">Por intervalo</ToggleGroupItem>
-                <ToggleGroupItem value="days">Dias da semana</ToggleGroupItem>
+                <ToggleGroupItem value="interval">{t("ludocard-schedule-by-interval", "Por intervalo")}</ToggleGroupItem>
+                <ToggleGroupItem value="days">{t("ludocard-schedule-by-days", "Dias da semana")}</ToggleGroupItem>
               </ToggleGroup>
 
               {scheduleMode === "interval" ? (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
                   <Clock className="size-4 text-primary" />
-                  <span className="text-sm">Fazer backup a cada</span>
+                  <span className="text-sm">{t("ludocard-schedule-backup-every", "Fazer backup a cada")}</span>
                   <Select defaultValue="6">
                     <SelectTrigger className="w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="1">1 hora</SelectItem>
-                        <SelectItem value="3">3 horas</SelectItem>
-                        <SelectItem value="6">6 horas</SelectItem>
-                        <SelectItem value="12">12 horas</SelectItem>
-                        <SelectItem value="24">24 horas</SelectItem>
+                        <SelectItem value="1">{t("ludocard-schedule-1-hour", "1 hora")}</SelectItem>
+                        <SelectItem value="3">{t("ludocard-schedule-3-hours", "3 horas")}</SelectItem>
+                        <SelectItem value="6">{t("ludocard-schedule-6-hours", "6 horas")}</SelectItem>
+                        <SelectItem value="12">{t("ludocard-schedule-12-hours", "12 horas")}</SelectItem>
+                        <SelectItem value="24">{t("ludocard-schedule-24-hours", "24 horas")}</SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
@@ -498,25 +506,25 @@ export function SettingsClient() {
                   <div className="flex flex-wrap gap-1.5">
                     {weekDays.map((d) => (
                       <button
-                        key={d}
+                        key={d.key}
                         onClick={() =>
                           setActiveDays((prev) =>
-                            prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d],
+                            prev.includes(d.key) ? prev.filter((x) => x !== d.key) : [...prev, d.key],
                           )
                         }
                         className={
-                          activeDays.includes(d)
+                          activeDays.includes(d.key)
                             ? "rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
                             : "rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                         }
                       >
-                        {d}
+                        {d.label}
                       </button>
                     ))}
                   </div>
                   <div className="flex items-center gap-3">
                     <Clock className="size-4 text-primary" />
-                    <span className="text-sm">No horário</span>
+                    <span className="text-sm">{t("ludocard-schedule-at-time", "No horário")}</span>
                     <Select defaultValue="22">
                       <SelectTrigger className="w-24">
                         <SelectValue />
@@ -538,9 +546,9 @@ export function SettingsClient() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Jogos no cronograma</CardTitle>
+              <CardTitle className="text-base">{t("ludocard-schedule-games-in-schedule", "Jogos no cronograma")}</CardTitle>
               <CardDescription>
-                Selecione quais jogos seguem esta rotina automática.
+                {t("ludocard-schedule-games-in-schedule-desc", "Selecione quais jogos seguem esta rotina automática.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
@@ -566,9 +574,9 @@ export function SettingsClient() {
               ))}
               <Button
                 className="mt-2 self-end"
-                onClick={() => toast.success("Cronograma salvo")}
+                onClick={() => toast.success(t("ludocard-schedule-saved-toast", "Cronograma salvo"))}
               >
-                Salvar cronograma
+                {t("ludocard-schedule-btn-save", "Salvar cronograma")}
               </Button>
             </CardContent>
           </Card>
@@ -579,29 +587,29 @@ export function SettingsClient() {
       <TabsContent value="notifications">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Alertas e notificações</CardTitle>
-            <CardDescription>Como você quer ser avisado sobre os backups.</CardDescription>
+            <CardTitle className="text-base">{t("ludocard-notification-alerts", "Alertas e notificações")}</CardTitle>
+            <CardDescription>{t("ludocard-notification-alerts-desc", "Como você quer ser avisado sobre os backups.")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col">
             <SettingRow
               icon={Bell}
-              title="Notificações do Windows"
-              description="Avisa quando um backup é concluído com sucesso."
-              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? "Notificações ligadas" : "Notificações desligadas")} />}
+              title={t("ludocard-notification-windows", "Notificações do Windows")}
+              description={t("ludocard-notification-windows-desc", "Avisa quando um backup é concluído com sucesso.")}
+              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? t("ludocard-notification-toast-enabled", "Notificações ligadas") : t("ludocard-notification-toast-disabled", "Notificações desligadas"))} />}
             />
             <Separator />
             <SettingRow
               icon={Bell}
-              title="Alertas de falha"
-              description="Notifica imediatamente quando um backup falha."
-              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? "Alertas de falha ligados" : "Desligados")} />}
+              title={t("ludocard-notification-fail-alerts", "Alertas de falha")}
+              description={t("ludocard-notification-fail-alerts-desc", "Notifica imediatamente quando um backup falha.")}
+              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? t("ludocard-notification-toast-fail-enabled", "Alertas de falha ligados") : t("ludocard-notification-toast-fail-disabled", "Alertas de falha desligados"))} />}
             />
             <Separator />
             <SettingRow
               icon={Bell}
-              title="Sons de alerta"
-              description="Toca um som ao concluir ou falhar um backup."
-              control={<Switch onCheckedChange={(c) => toast.message(c ? "Sons ligados" : "Sons desligados")} />}
+              title={t("ludocard-notification-sounds", "Sons de alerta")}
+              description={t("ludocard-notification-sounds-desc", "Toca um som ao concluir ou falhar um backup.")}
+              control={<Switch onCheckedChange={(c) => toast.message(c ? t("ludocard-notification-toast-sounds-enabled", "Sons ligados") : t("ludocard-notification-toast-sounds-disabled", "Sons desligados"))} />}
             />
           </CardContent>
         </Card>

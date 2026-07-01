@@ -32,6 +32,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { useLibrary } from "@/lib/library-context"
 import { cn } from "@/lib/utils"
 import { type CommunityPreset } from "@/lib/mock-data"
+import { useI18n } from "@/lib/i18n"
 
 const isTauri =
   typeof window !== "undefined" &&
@@ -42,16 +43,16 @@ interface TagInfo {
   description: string
 }
 
-const PREDEFINED_PRESET_TAGS: TagInfo[] = [
-  { name: "Performance", description: "Otimizações focadas em ganho de FPS e fluidez." },
-  { name: "Qualidade / Visual", description: "Otimizações focadas em qualidade gráfica máxima." },
-  { name: "Balanced", description: "Equilíbrio ideal entre fidelidade visual e taxa de FPS." },
-  { name: "Steam Deck", description: "Perfil otimizado especificamente para a tela e bateria do Steam Deck/portáteis." },
-  { name: "Potato Mode", description: "Para rodar em PCs super antigos e notebooks modestos." },
-  { name: "Controles / Layout", description: "Mapeamento customizado de controles, gamepad ou hotkeys." },
-  { name: "Ray Tracing Opt", description: "Configuração refinada com traçado de raio ativo, visando boa taxa de quadros." },
-  { name: "4K Ready", description: "Otimizações focadas em TVs e monitores 4K de alta definição." },
-  { name: "VR Ready", description: "Configurações ajustadas para taxa de FPS ideal em realidade virtual." }
+const getPredefinedPresetTags = (t: any): TagInfo[] => [
+  { name: "Performance", description: t("ludocard-preset-tag-desc-perf", "Otimizações focadas em ganho de FPS e fluidez.") },
+  { name: "Qualidade / Visual", description: t("ludocard-preset-tag-desc-quality", "Otimizações focadas em qualidade gráfica máxima.") },
+  { name: "Balanced", description: t("ludocard-preset-tag-desc-balanced", "Equilíbrio ideal entre fidelidade visual e taxa de FPS.") },
+  { name: "Steam Deck", description: t("ludocard-preset-tag-desc-deck", "Perfil otimizado especificamente para a tela e bateria do Steam Deck/portáteis.") },
+  { name: "Potato Mode", description: t("ludocard-preset-tag-desc-potato", "Para rodar em PCs super antigos e notebooks modestos.") },
+  { name: "Controles / Layout", description: t("ludocard-preset-tag-desc-controls", "Mapeamento customizado de controles, gamepad ou hotkeys.") },
+  { name: "Ray Tracing Opt", description: t("ludocard-preset-tag-desc-rt", "Configuração refinada com traçado de raio ativo, visando boa taxa de quadros.") },
+  { name: "4K Ready", description: t("ludocard-preset-tag-desc-4k", "Otimizações focadas em TVs e monitores 4K de alta definição.") },
+  { name: "VR Ready", description: t("ludocard-preset-tag-desc-vr", "Configurações ajustadas para taxa de FPS ideal em realidade virtual.") }
 ]
 
 interface LocalPresetOption {
@@ -72,20 +73,22 @@ function formatCompactSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatRelativeDate(isoDate: string): string {
+function formatRelativeDate(isoDate: string, t: any): string {
   const date = new Date(isoDate)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return "Hoje"
-  if (diffDays === 1) return "Ontem"
-  if (diffDays < 7) return `${diffDays} dias atrás`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} semanas atrás`
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+  if (diffDays === 0) return t("ludocard-date-today", "Hoje")
+  if (diffDays === 1) return t("ludocard-date-yesterday", "Ontem")
+  if (diffDays < 7) return `${diffDays} ${t("ludocard-date-days-ago", "dias atrás")}`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} ${t("ludocard-date-weeks-ago", "semanas atrás")}`
+  return date.toLocaleDateString(t("ludocard-date-locale", "pt-BR"), { day: "2-digit", month: "short", year: "numeric" })
 }
 
 export default function PresetHub() {
+  const { t } = useI18n()
   const { games } = useLibrary()
+  const PREDEFINED_PRESET_TAGS = getPredefinedPresetTags(t)
 
   // Presets and state
   const [presets, setPresets] = useState<CommunityPreset[]>([])
@@ -566,13 +569,13 @@ export default function PresetHub() {
 
   return (
     <AppShell
-      title="Preset Share HUB"
-      description="Descubra e compartilhe otimizações de gráficos e controles da comunidade"
+      title={t("ludocard-presethub-title", "Preset Share HUB")}
+      description={t("ludocard-presethub-desc", "Descubra e compartilhe otimizações de gráficos e controles da comunidade")}
       actions={
         isConfigured && (
           <Button size="sm" onClick={() => setIsShareModalOpen(true)}>
             <Upload data-icon="inline-start" />
-            Compartilhar Preset
+            {t("ludocard-btn-share-preset", "Compartilhar Preset")}
           </Button>
         )
       }
@@ -583,9 +586,9 @@ export default function PresetHub() {
             <Database className="size-6 animate-pulse" />
           </div>
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-bold">Repositório de Presets Desconectado</h2>
+            <h2 className="text-lg font-bold">{t("ludocard-presethub-disconnected", "Repositório de Presets Desconectado")}</h2>
             <p className="text-sm text-muted-foreground">
-              Configure seu banco de dados Supabase nas Configurações do Ludocard para sincronizar os presets da comunidade.
+              {t("ludocard-presethub-disconnected-desc", "Para carregar os presets comunitários e compartilhar os seus, você precisa configurar a URL do seu Supabase e a Anon Key pública na aba de Configurações.")}
             </p>
           </div>
         </div>
@@ -599,7 +602,7 @@ export default function PresetHub() {
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-bold leading-none">{presets.length}</span>
-                <span className="text-[11px] text-muted-foreground">Presets Públicos</span>
+                <span className="text-[11px] text-muted-foreground">{t("ludocard-presets", "Presets")}</span>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 p-3.5">
@@ -610,7 +613,7 @@ export default function PresetHub() {
                 <span className="text-lg font-bold leading-none">
                   {new Set(presets.map(p => p.userUuid)).size}
                 </span>
-                <span className="text-[11px] text-muted-foreground">Autores Ativos</span>
+                <span className="text-[11px] text-muted-foreground">{t("ludocard-contributors", "Contribuidores")}</span>
               </div>
             </div>
           </div>
@@ -621,7 +624,7 @@ export default function PresetHub() {
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="preset-search"
-                placeholder="Buscar por jogo, título ou hardware (ex: RTX 4070)..."
+                placeholder={t("ludocard-preset-search-placeholder", "Buscar por jogo, título ou hardware (ex: RTX 4070)...")}
                 className="pl-9"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -634,7 +637,7 @@ export default function PresetHub() {
                 onClick={() => setSortMode("popular")}
               >
                 <TrendingUp className="size-3.5" data-icon="inline-start" />
-                Popular
+                {t("ludocard-sort-popular", "Popular")}
               </Button>
               <Button
                 variant={sortMode === "recent" ? "secondary" : "ghost"}
@@ -642,7 +645,7 @@ export default function PresetHub() {
                 onClick={() => setSortMode("recent")}
               >
                 <Clock className="size-3.5" data-icon="inline-start" />
-                Recentes
+                {t("ludocard-sort-recent-hub", "Recentes")}
               </Button>
               <Button
                 variant={sortMode === "size" ? "secondary" : "ghost"}
@@ -650,7 +653,7 @@ export default function PresetHub() {
                 onClick={() => setSortMode("size")}
               >
                 <Package className="size-3.5" data-icon="inline-start" />
-                Tamanho
+                {t("ludocard-sort-size-hub", "Tamanho")}
               </Button>
             </div>
           </div>
@@ -659,7 +662,7 @@ export default function PresetHub() {
           {loading ? (
             <div className="flex h-[300px] flex-col items-center justify-center gap-2">
               <RefreshCw className="size-7 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">Sincronizando presets...</span>
+              <span className="text-sm text-muted-foreground">{t("ludocard-syncing-presets", "Sincronizando presets...")}</span>
             </div>
           ) : sortedPresets.length === 0 ? (
             <Empty>
@@ -667,8 +670,16 @@ export default function PresetHub() {
                 <EmptyMedia variant="icon">
                   <SlidersHorizontal />
                 </EmptyMedia>
-                <EmptyTitle>Nenhum preset gráfico encontrado</EmptyTitle>
-                <EmptyDescription>Tente redefinir seus termos de busca.</EmptyDescription>
+                <EmptyTitle>
+                  {presets.length === 0 
+                    ? "Aqui ainda não tem presets" 
+                    : t("ludocard-no-presets-found", "Nenhum preset gráfico encontrado")}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {presets.length === 0 
+                    ? "Seja o primeiro a compartilhar um preset gráfico ou de controles para a comunidade!" 
+                    : t("ludocard-search-terms-desc-preset", "Tente redefinir seus termos de busca.")}
+                </EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -708,7 +719,7 @@ export default function PresetHub() {
                               {p.isOfficial && (
                                 <Badge variant="outline" className="text-[9px] font-bold text-primary border-primary/35 bg-primary/10 select-none uppercase shrink-0">
                                   <Sparkles className="size-2 ml-0.5 fill-current" />
-                                  Oficial
+                                  {t("ludocard-badge-official", "Oficial")}
                                 </Badge>
                               )}
                             </h3>
@@ -730,14 +741,14 @@ export default function PresetHub() {
                           </div>
 
                           <p className="line-clamp-1 text-xs leading-relaxed text-muted-foreground mt-0.5">
-                            {p.description || "Nenhuma descrição fornecida."}
+                            {p.description || t("ludocard-no-desc-provided", "Nenhuma descrição fornecida.")}
                           </p>
 
                           {/* Hardware / Author mini row */}
                           <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-muted-foreground font-medium">
                             <span className="font-mono bg-muted px-1.5 py-0.5 rounded border border-border/80 truncate max-w-[200px]" title={`${p.cpu} | ${p.gpu} | ${p.ram}`}>
                               <Cpu className="inline-block size-3 mr-0.5 text-primary -translate-y-0.5" />
-                              {p.gpu || "GPU"}
+                              {p.gpu || t("ludocard-gpu", "GPU")}
                             </span>
                             <span>•</span>
                             <span>{p.authorName}</span>
@@ -748,7 +759,7 @@ export default function PresetHub() {
                       {/* Action & Voting Bar */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground mt-auto">
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1" title="Aprovação">
+                          <div className="flex items-center gap-1" title={t("ludocard-approval", "Aprovação")}>
                             <ThumbsUp className="size-3 text-primary" />
                             <span className="font-semibold text-foreground">{approval}%</span>
                             <span className="text-[10px] text-muted-foreground">({p.downloadsCount})</span>
@@ -761,7 +772,7 @@ export default function PresetHub() {
                                 handleVotePreset(p.id, true);
                               }}
                               className="p-1 hover:bg-primary/10 hover:text-primary transition-colors border-r border-border"
-                              title="Útil"
+                              title={t("ludocard-useful", "Útil")}
                             >
                               <ThumbsUp className="size-3" />
                             </button>
@@ -771,7 +782,7 @@ export default function PresetHub() {
                                 handleVotePreset(p.id, false);
                               }}
                               className="p-1 hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                              title="Inútil"
+                              title={t("ludocard-useless", "Inútil")}
                             >
                               <ThumbsDown className="size-3" />
                             </button>
@@ -783,7 +794,7 @@ export default function PresetHub() {
                               handleReportPreset(p.id);
                             }}
                             className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/5 rounded transition-colors"
-                            title="Denunciar preset"
+                            title={t("ludocard-report-preset", "Denunciar preset")}
                           >
                             <AlertTriangle className="size-3" />
                           </button>
@@ -801,7 +812,7 @@ export default function PresetHub() {
                               className="h-7 text-[10px] font-semibold"
                             >
                               <RotateCcw className="size-3" data-icon="inline-start" />
-                              Desfazer
+                              {t("ludocard-btn-undo", "Desfazer")}
                             </Button>
                           )}
                           <Button
@@ -816,12 +827,12 @@ export default function PresetHub() {
                             {importingPreset === p.id ? (
                               <>
                                 <RefreshCw className="size-2.5 animate-spin" data-icon="inline-start" />
-                                Injetando...
+                                {t("ludocard-btn-injecting", "Injetando...")}
                               </>
                             ) : (
                               <>
                                 <Zap className="size-2.5 fill-current" data-icon="inline-start" />
-                                {isInstalledLocally ? "Injetar" : "Não Instalado"}
+                                {isInstalledLocally ? t("ludocard-btn-inject", "Injetar") : t("ludocard-not-installed", "Não Instalado")}
                               </>
                             )}
                           </Button>
@@ -839,9 +850,9 @@ export default function PresetHub() {
             <div className="flex items-start gap-3">
               <Shield className="mt-0.5 size-4 shrink-0 text-amber-400" />
               <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Segurança Garantida pelo Seguro-Crash</span>
+                <span className="font-medium text-foreground">{t("ludocard-security-safety-title", "Segurança Garantida pelo Seguro-Crash")}</span>
                 <span>
-                  Ao baixar qualquer preset gráfico do HUB, o Ludocard faz backup das suas configurações anteriores. Os seus saves de progresso permanecem intocados.
+                  {t("ludocard-security-safety-desc", "Ao baixar qualquer preset gráfico do HUB, o Ludocard faz backup das suas configurações anteriores. Os seus saves de progresso permanecem intocados.")}
                 </span>
               </div>
             </div>
@@ -859,7 +870,7 @@ export default function PresetHub() {
                   <Gamepad2 className="size-4.5 text-primary" />
                   {selectedDetailPreset.gameName}
                 </CardTitle>
-                <CardDescription className="text-xs">Visualizando metadados completos do preset.</CardDescription>
+                <CardDescription className="text-xs">{t("ludocard-detail-modal-desc", "Visualizando metadados completos do preset.")}</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -872,13 +883,13 @@ export default function PresetHub() {
             </CardHeader>
             <CardContent className="pt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-muted-foreground font-semibold font-medium">Título do Preset:</span>
+                <span className="text-xs text-muted-foreground font-semibold font-medium">{t("ludocard-detail-preset-title", "Título do Preset:")}</span>
                 <span className="text-sm font-bold text-foreground leading-snug">{selectedDetailPreset.title}</span>
               </div>
 
               {selectedDetailPreset.description && (
                 <div className="flex flex-col gap-1 bg-muted/20 border border-border p-3 rounded-lg">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Descrição / Otimizações:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">{t("ludocard-detail-preset-desc", "Descrição / Otimizações:")}</span>
                   <div className="max-h-[160px] overflow-y-auto pr-1.5 scrollbar-thin">
                     <p className="text-xs leading-relaxed text-muted-foreground mt-0.5 whitespace-pre-wrap">{selectedDetailPreset.description}</p>
                   </div>
@@ -887,7 +898,7 @@ export default function PresetHub() {
 
               {selectedDetailPreset.tags && selectedDetailPreset.tags.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Marcadores:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">{t("ludocard-detail-tags-label", "Marcadores:")}</span>
                   <div className="flex flex-wrap gap-1">
                     {selectedDetailPreset.tags.map((t: string) => {
                       const info = PREDEFINED_PRESET_TAGS.find(pt => pt.name === t)
@@ -908,27 +919,27 @@ export default function PresetHub() {
 
               <div className="grid grid-cols-2 gap-3 bg-muted/20 border border-border p-3.5 rounded-xl text-xs">
                 <div className="flex flex-col gap-0.5 col-span-2">
-                  <span className="text-muted-foreground font-semibold">Especificações do Autor:</span>
+                  <span className="text-muted-foreground font-semibold">{t("ludocard-detail-author-specs", "Especificações do Autor:")}</span>
                   <span className="font-mono text-foreground mt-0.5 leading-relaxed">
                     {selectedDetailPreset.cpu ? `${selectedDetailPreset.cpu} | ` : ""}{selectedDetailPreset.gpu ? `${selectedDetailPreset.gpu} | ` : ""}{selectedDetailPreset.ram || ""}
                   </span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Tamanho Comprimido:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-size-label", "Tamanho Comprimido:")}</span>
                   <span className="font-semibold text-foreground">{formatCompactSize(selectedDetailPreset.fileSize)}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Total Downloads:</span>
-                  <span className="font-semibold text-foreground">{selectedDetailPreset.downloadsCount.toLocaleString("pt-BR")}</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-downloads-label", "Total Downloads:")}</span>
+                  <span className="font-semibold text-foreground">{selectedDetailPreset.downloadsCount.toLocaleString(t("ludocard-date-locale", "pt-BR"))}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Enviado por:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-author-label", "Enviado por:")}</span>
                   <span className="font-semibold text-foreground">{selectedDetailPreset.authorName}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
-                  <span className="text-muted-foreground">Enviado em:</span>
+                  <span className="text-muted-foreground">{t("ludocard-detail-date-label", "Enviado em:")}</span>
                   <span className="font-semibold text-foreground">
-                    {new Date(selectedDetailPreset.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                    {new Date(selectedDetailPreset.createdAt).toLocaleDateString(t("ludocard-date-locale", "pt-BR"), { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
               </div>
@@ -943,8 +954,8 @@ export default function PresetHub() {
           <Card className="w-full max-w-lg shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 !overflow-visible">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
               <div>
-                <CardTitle className="text-base">Compartilhar Preset Gráfico</CardTitle>
-                <CardDescription className="text-xs">Envie um preset gráfico local para a comunidade.</CardDescription>
+                <CardTitle className="text-base">{t("ludocard-share-preset-modal-title", "Compartilhar Preset Gráfico")}</CardTitle>
+                <CardDescription className="text-xs">{t("ludocard-share-preset-modal-desc", "Envie um preset gráfico local para a comunidade.")}</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -959,12 +970,12 @@ export default function PresetHub() {
               <form onSubmit={handlePublishPreset} className="flex flex-col gap-4">
                 {/* Searchable Game Selector */}
                 <div className="flex flex-col gap-1.5 relative">
-                  <label className="text-xs font-semibold text-muted-foreground">Jogo do Preset *</label>
+                  <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-preset-game-label", "Jogo do Preset *")}</label>
                   {!selectedGameId ? (
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Pesquisar jogo instalado..."
+                        placeholder={t("ludocard-search-installed-game-preset", "Pesquisar jogo instalado...")}
                         value={gameSearchQuery}
                         onChange={(e) => {
                           setGameSearchQuery(e.target.value)
@@ -978,7 +989,7 @@ export default function PresetHub() {
                           {games
                             .filter(g => g.installed && (!gameSearchQuery || g.title.toLowerCase().includes(gameSearchQuery.toLowerCase())))
                             .length === 0 ? (
-                            <div className="py-2 px-3 text-xs text-muted-foreground">Nenhum jogo encontrado</div>
+                            <div className="py-2 px-3 text-xs text-muted-foreground">{t("ludocard-no-games-found", "Nenhum jogo encontrado")}</div>
                           ) : (
                             games
                               .filter(g => g.installed && (!gameSearchQuery || g.title.toLowerCase().includes(gameSearchQuery.toLowerCase())))
@@ -1025,11 +1036,11 @@ export default function PresetHub() {
                 {/* Local Preset Selector */}
                 {selectedGameId && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Escolher Preset Local *</label>
+                    <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-choose-local-preset-label", "Escolher Preset Local *")}</label>
                     {localPresets.length === 0 ? (
                       <div className="text-xs text-amber-400 bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-lg flex items-center gap-2">
                         <SlidersHorizontal className="size-4 shrink-0 text-amber-400" />
-                        Nenhum preset local salvo para este jogo. Vá na aba do jogo e crie um preset local primeiro!
+                        {t("ludocard-no-local-presets-desc", "Nenhum preset local salvo para este jogo. Vá na aba do jogo e crie um preset local primeiro!")}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto border border-border/80 rounded-md bg-muted/10 p-2.5">
@@ -1046,19 +1057,19 @@ export default function PresetHub() {
                               )}
                             >
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="selected-local-preset"
-                                  checked={isChecked}
-                                  onChange={() => setSelectedLocalPresetId(p.id)}
-                                  className="size-3.5 text-primary border-border bg-muted focus:ring-primary focus:ring-1"
-                                />
-                                <span className="font-semibold text-foreground">{p.title}</span>
-                              </div>
-                              <span className="font-mono text-[10px] text-muted-foreground">{p.gpu}</span>
-                            </label>
-                          )
-                        })}
+                                  <input
+                                    type="radio"
+                                    name="selected-local-preset"
+                                    checked={isChecked}
+                                    onChange={() => setSelectedLocalPresetId(p.id)}
+                                    className="size-3.5 text-primary border-border bg-muted focus:ring-primary focus:ring-1"
+                                  />
+                                  <span className="font-semibold text-foreground">{p.title}</span>
+                                </div>
+                                <span className="font-mono text-[10px] text-muted-foreground">{p.gpu}</span>
+                              </label>
+                            )
+                          })}
                       </div>
                     )}
                   </div>
@@ -1069,7 +1080,7 @@ export default function PresetHub() {
                   <>
                     <div className="grid gap-3.5 sm:grid-cols-2">
                       <div className="flex flex-col gap-1.5">
-                        <label htmlFor="preset-title" className="text-xs font-semibold text-muted-foreground">Título do Preset *</label>
+                        <label htmlFor="preset-title" className="text-xs font-semibold text-muted-foreground">{t("ludocard-preset-title-label", "Título do Preset *")}</label>
                         <input
                           id="preset-title"
                           type="text"
@@ -1080,7 +1091,7 @@ export default function PresetHub() {
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label htmlFor="preset-author" className="text-xs font-semibold text-muted-foreground">Autor / Criador</label>
+                        <label htmlFor="preset-author" className="text-xs font-semibold text-muted-foreground">{t("ludocard-preset-creator-label", "Autor / Criador")}</label>
                         <input
                           id="preset-author"
                           type="text"
@@ -1092,7 +1103,7 @@ export default function PresetHub() {
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label htmlFor="preset-desc" className="text-xs font-semibold text-muted-foreground">Descrição / Notas do Preset</label>
+                      <label htmlFor="preset-desc" className="text-xs font-semibold text-muted-foreground">{t("ludocard-preset-desc-label", "Descrição / Notas do Preset")}</label>
                       <textarea
                         id="preset-desc"
                         rows={2}
@@ -1104,7 +1115,7 @@ export default function PresetHub() {
 
                     {/* Predefined Tags Selector */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Tags do Preset</label>
+                      <label className="text-xs font-semibold text-muted-foreground">{t("ludocard-preset-tags-label", "Tags do Preset")}</label>
                       <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto border border-border/80 p-2.5 rounded-md bg-muted/10">
                         {PREDEFINED_PRESET_TAGS.map(tag => {
                           const active = selectedUploadTags.includes(tag.name)
@@ -1138,11 +1149,11 @@ export default function PresetHub() {
                     <div className="flex flex-col gap-2 border border-border rounded-xl p-3 bg-muted/10">
                       <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                         <Cpu className="size-3.5 text-primary" />
-                        Hardware do Autor (Auto-preenchido do preset local):
+                        {t("ludocard-preset-hardware-label", "Hardware do Autor (Auto-preenchido do preset local):")}
                       </span>
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-semibold text-muted-foreground">CPU</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">{t("ludocard-cpu", "CPU")}</span>
                           <input
                             type="text"
                             value={cpu}
@@ -1151,7 +1162,7 @@ export default function PresetHub() {
                           />
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-semibold text-muted-foreground">GPU</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">{t("ludocard-gpu", "GPU")}</span>
                           <input
                             type="text"
                             value={gpu}
@@ -1160,7 +1171,7 @@ export default function PresetHub() {
                           />
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-semibold text-muted-foreground">RAM</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">{t("ludocard-ram", "RAM")}</span>
                           <input
                             type="text"
                             value={ram}
@@ -1180,14 +1191,14 @@ export default function PresetHub() {
                     variant="ghost"
                     onClick={() => setIsShareModalOpen(false)}
                   >
-                    Cancelar
+                    {t("ludocard-btn-cancel", "Cancelar")}
                   </Button>
                   <Button
                     type="submit"
                     disabled={uploading || !selectedGameId || !selectedLocalPresetId}
                     className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
                   >
-                    {uploading ? "Publicando..." : "Publicar Preset"}
+                    {uploading ? t("ludocard-btn-publishing", "Publicando...") : t("ludocard-btn-publish-preset", "Publicar Preset")}
                   </Button>
                 </div>
               </form>

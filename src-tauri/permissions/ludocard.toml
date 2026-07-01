@@ -32,6 +32,7 @@ commands.allow = [
   "export_ludocard_backup",
   "delete_temp_file",
   "save_backup_note",
+  "save_campaign_note",
   "open_url",
   "get_system_hardware_info",
   "detect_game_config_files",

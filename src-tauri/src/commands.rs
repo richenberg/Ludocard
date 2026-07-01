@@ -50,6 +50,7 @@ pub struct FrontendGame {
     pub installed: bool,
     pub last_played: Option<String>,
     pub emulator: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -797,6 +798,17 @@ pub fn load_backup_note(app_data_dir: &Path, game_id: &str, backup_id: &str) -> 
     Some(note)
 }
 
+pub fn load_campaign_note(app_data_dir: &Path, game_id: &str) -> Option<String> {
+    let config_path = app_data_dir.join("ludocard.json");
+    let content = std::fs::read_to_string(&config_path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let note = json.get("campaign_notes")?
+        .get(game_id)?
+        .as_str()?
+        .to_string();
+    Some(note)
+}
+
 /// Build a FrontendGame from a combination of scan data, backup data, and cached scan info.
 fn build_frontend_game(
     app_data_dir: Option<&Path>,
@@ -920,6 +932,8 @@ fn build_frontend_game(
         backup_path = path.clone();
     }
 
+    let notes = app_data_dir.and_then(|dir| load_campaign_note(dir, &slug));
+
     FrontendGame {
         id: slug,
         title: display_title,
@@ -937,6 +951,7 @@ fn build_frontend_game(
         installed,
         last_played,
         emulator,
+        notes,
     }
 }
 
@@ -2689,6 +2704,36 @@ pub async fn save_backup_note(
 }
 
 #[tauri::command]
+pub async fn save_campaign_note(
+    app: tauri::AppHandle,
+    game_id: String,
+    note: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let config_path = app_data_dir.join("ludocard.json");
+        let mut json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+            serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+
+        if !json["campaign_notes"].is_object() {
+            json["campaign_notes"] = serde_json::json!({});
+        }
+
+        json["campaign_notes"][&game_id] = serde_json::json!(note);
+
+        let _ = std::fs::create_dir_all(&app_data_dir);
+        std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default())
+            .map_err(|e| format!("Falha ao salvar notas da campanha: {}", e))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn open_url(url: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         opener::open(&url).map_err(|e| e.to_string())
@@ -3642,6 +3687,146 @@ pub async fn test_cloud_connection(app: tauri::AppHandle) -> Result<(), String> 
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictVersionInfo {
+    pub date: String,
+    pub size_formatted: String,
+    pub is_newer: bool,
+    pub is_older: bool,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudConflict {
+    pub game_title: String,
+    pub local: ConflictVersionInfo,
+    pub remote: ConflictVersionInfo,
+}
+
+#[tauri::command]
+pub async fn check_cloud_conflict(app: tauri::AppHandle, game_title: String) -> Result<Option<CloudConflict>, String> {
+    tokio::task::spawn_blocking(move || {
+        let api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        
+        // 1. Check if cloud sync is enabled
+        if !api.config.cloud.synchronize {
+            return Ok(None);
+        }
+
+        // 2. Validate cloud config and get remote
+        let remote = match ludusavi::cloud::validate_cloud_config(&api.config, &api.config.cloud.path) {
+            Ok(r) => r,
+            Err(_) => return Ok(None),
+        };
+
+        let game_dir = api.layout.game_folder(&game_title).leaf().unwrap_or_else(|| game_title.clone());
+        let app_data_dir = app.path().app_data_dir().map_err(|_| "Failed to get AppData dir".to_string())?;
+
+        // 3. Try to load local mapping.yaml
+        let local_mapping_path = api.layout.game_folder(&game_title).joined("mapping.yaml");
+        let local_mapping = if local_mapping_path.exists() {
+            ludusavi::scan::layout::IndividualMapping::load(&local_mapping_path).ok()
+        } else {
+            None
+        };
+
+        // 4. Download remote mapping.yaml
+        let temp_dir = app_data_dir.join("temp");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let temp_file = temp_dir.join(format!("remote_mapping_{}.yaml", uuid::Uuid::new_v4()));
+
+        let remote_mapping_path_str = format!("{}/{}/mapping.yaml", api.config.cloud.path, game_dir);
+        let remote_path_full = format!("{}:{}", remote.id(), remote_mapping_path_str.replace('\\', "/"));
+
+        let run_rclone = |args: &[&str]| -> Result<(), String> {
+            let mut command = std::process::Command::new(api.config.apps.rclone.path.raw());
+            command.args(args);
+            
+            if !api.config.apps.rclone.arguments.is_empty() {
+                if let Some(parts) = shlex::split(&api.config.apps.rclone.arguments) {
+                    command.args(parts);
+                }
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                command.creation_flags(0x08000000);
+            }
+
+            let output = command.output().map_err(|e| format!("Erro ao iniciar Rclone: {}", e))?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Erro no Rclone: {}", stderr));
+            }
+            Ok(())
+        };
+
+        // Copy remote mapping to temp file
+        let remote_mapping = if run_rclone(&["copyto", &remote_path_full, &temp_file.to_string_lossy()]).is_ok() {
+            let mapping_content = std::fs::read_to_string(&temp_file).ok();
+            let _ = std::fs::remove_file(&temp_file);
+            mapping_content.and_then(|c| ludusavi::scan::layout::IndividualMapping::load_from_string(&c).ok())
+        } else {
+            None
+        };
+
+        // 5. Compare latest backups
+        let latest_local = local_mapping.as_ref().and_then(|m| m.backups.back());
+        let latest_remote = remote_mapping.as_ref().and_then(|m| m.backups.back());
+
+        match (latest_local, latest_remote) {
+            (Some(local), Some(remote)) => {
+                // Check if timestamps are different (by more than 2 seconds)
+                let diff_seconds = (local.when.timestamp() - remote.when.timestamp()).abs();
+                if diff_seconds > 2 {
+                    let local_bytes: u64 = local.files.values().map(|f| f.size).sum();
+                    let remote_bytes: u64 = remote.files.values().map(|f| f.size).sum();
+
+                    let is_local_newer = local.when > remote.when;
+
+                    let format_size = |bytes: u64| {
+                        if bytes < 1024 * 1024 {
+                            format!("{:.2} KB", bytes as f64 / 1024.0)
+                        } else {
+                            format!("{:.2} MB", bytes as f64 / (1024.0 * 1024.0))
+                        }
+                    };
+
+                    let local_local_time = local.when.with_timezone(&chrono::Local);
+                    let remote_local_time = remote.when.with_timezone(&chrono::Local);
+
+                    return Ok(Some(CloudConflict {
+                        game_title,
+                        local: ConflictVersionInfo {
+                            date: local_local_time.format("%d %b %Y, %H:%M:%S").to_string(),
+                            size_formatted: format_size(local_bytes),
+                            is_newer: is_local_newer,
+                            is_older: !is_local_newer,
+                            label: "Este PC".to_string(),
+                        },
+                        remote: ConflictVersionInfo {
+                            date: remote_local_time.format("%d %b %Y, %H:%M:%S").to_string(),
+                            size_formatted: format_size(remote_bytes),
+                            is_newer: !is_local_newer,
+                            is_older: is_local_newer,
+                            label: "Nuvem".to_string(),
+                        },
+                    }));
+                }
+            }
+            _ => {}
+        }
+
+        Ok(None)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

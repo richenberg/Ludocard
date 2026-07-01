@@ -33,6 +33,7 @@ export interface Game {
   installed: boolean
   lastPlayed?: string // ISO 8601 date string
   emulator?: string
+  notes?: string
 }
 
 export const platformColors: Record<Platform, string> = {

@@ -42,6 +42,7 @@ import {
 } from "@/lib/mock-data"
 import { useLibrary } from "@/lib/library-context"
 import { useI18n } from "@/lib/i18n"
+import { ConflictResolutionModal } from "../cloud/conflict-resolution-modal"
 
 const statusConfig: Record<
   BackupStatus,
@@ -102,6 +103,27 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
 
   const displayLastBackup = game.lastBackup === "Nunca" ? t("ludocard-never", "Nunca") : game.lastBackup
 
+  const [localNotes, setLocalNotes] = useState(game.notes || "")
+
+  useEffect(() => {
+    setLocalNotes(game.notes || "")
+  }, [game.notes])
+
+  const saveNotes = async () => {
+    if (localNotes === (game.notes || "")) return;
+    if (isTauri) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
+        game.notes = localNotes;
+      } catch (err) {
+        toast.error(`Falha ao salvar anotação: ${err}`);
+      }
+    } else {
+      game.notes = localNotes;
+    }
+  };
+
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/50">
       <div className="absolute left-2 top-2 z-20 flex items-center gap-2">
@@ -145,6 +167,16 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
         </div>
       </div>
 
+      <div className="px-3 pb-3 pt-0">
+        <textarea
+          value={localNotes}
+          onChange={(e) => setLocalNotes(e.target.value)}
+          onBlur={saveNotes}
+          placeholder={t("ludocard-diario-bordo-placeholder", "Diário de Bordo (anotações)...")}
+          className="w-full min-h-[42px] max-h-[80px] resize-y bg-background/50 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded p-1.5 text-[11px] leading-normal outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
+        />
+      </div>
+
       {/* Hover quick actions */}
       <div className="pointer-events-none absolute inset-x-0 bottom-[68px] flex items-center justify-center gap-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
         <Button
@@ -181,6 +213,27 @@ function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: Game
 
   const displayLastBackup = game.lastBackup === "Nunca" ? t("ludocard-never", "Nunca") : game.lastBackup
 
+  const [localNotes, setLocalNotes] = useState(game.notes || "")
+
+  useEffect(() => {
+    setLocalNotes(game.notes || "")
+  }, [game.notes])
+
+  const saveNotes = async () => {
+    if (localNotes === (game.notes || "")) return;
+    if (isTauri) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
+        game.notes = localNotes;
+      } catch (err) {
+        toast.error(`Falha ao salvar anotação: ${err}`);
+      }
+    } else {
+      game.notes = localNotes;
+    }
+  };
+
   return (
     <div className="group flex items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors hover:border-primary/50 sm:gap-4">
       <Checkbox
@@ -207,6 +260,19 @@ function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: Game
             {statusLabel}
           </span>
         </div>
+        <input
+          type="text"
+          value={localNotes}
+          onChange={(e) => setLocalNotes(e.target.value)}
+          onBlur={saveNotes}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder={t("ludocard-diario-bordo-placeholder-short", "Diário de Bordo...")}
+          className="mt-1 w-full bg-background/30 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded px-2 py-0.5 text-[10px] outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
+        />
       </div>
       <div className="hidden w-24 shrink-0 flex-col items-end text-xs sm:flex">
         <span className="font-medium text-foreground">{formatSize(game.sizeMB)}</span>
@@ -245,11 +311,21 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
   const [onlyInstalled, setOnlyInstalled] = useState(false)
   const [sortBy, setSortBy] = useState<"name" | "recent" | "size">("name")
 
+  const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [conflictInfo, setConflictInfo] = useState<any>(null)
+
   const handleBackup = async (title: string) => {
     if (isTauri) {
       const id = toast.loading(`${t("ludocard-starting-backup-for", "Iniciando backup de")} "${title}"...`);
       try {
         const { invoke } = await import("@tauri-apps/api/core");
+        const conflict = await invoke<any>("check_cloud_conflict", { gameTitle: title });
+        if (conflict) {
+          toast.dismiss(id);
+          setConflictInfo(conflict);
+          setConflictModalOpen(true);
+          return;
+        }
         await invoke("backup_game", { gameTitle: title });
         toast.success(`${t("ludocard-backup-completed-for", "Backup de")} "${title}" ${t("ludocard-completed", "concluído!")}`, { id });
         loadGames(true);
@@ -258,6 +334,31 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
       }
     } else {
       toast.success(`[Mock] Backup de "${title}" concluído!`);
+    }
+  };
+
+  const handleResolveConflict = async (direction: "local" | "cloud") => {
+    if (!conflictInfo) return;
+    const title = conflictInfo.gameTitle;
+    const id = toast.loading(
+      direction === "local"
+        ? `Resolvendo conflito: mantendo a versão local de "${title}"...`
+        : `Resolvendo conflito: baixando a versão da nuvem de "${title}"...`
+    );
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (direction === "local") {
+        await invoke("backup_game", { gameTitle: title });
+        toast.success(`Versão local de "${title}" salva na nuvem!`, { id });
+      } else {
+        await invoke("restore_game", { gameTitle: title, backupId: null });
+        toast.success(`Versão da nuvem de "${title}" restaurada!`, { id });
+      }
+      setConflictModalOpen(false);
+      setConflictInfo(null);
+      loadGames(true);
+    } catch (err) {
+      toast.error(`Falha ao resolver conflito de "${title}": ${err}`, { id });
     }
   };
 
@@ -520,6 +621,15 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
           ))}
         </div>
       )}
+      <ConflictResolutionModal
+        isOpen={conflictModalOpen}
+        onClose={() => {
+          setConflictModalOpen(false)
+          setConflictInfo(null)
+        }}
+        conflict={conflictInfo}
+        onResolve={handleResolveConflict}
+      />
     </div>
   )
 }

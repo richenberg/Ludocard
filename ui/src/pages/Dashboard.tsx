@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
+import { ConflictResolutionModal } from "@/components/cloud/conflict-resolution-modal"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
@@ -22,6 +23,8 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [backingUp, setBackingUp] = useState(false);
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<any>(null);
 
   // Load cloud sync status
   useEffect(() => {
@@ -56,6 +59,16 @@ export default function Dashboard() {
         : games;
       
       for (const game of gamesToBackup) {
+        if (target === "cloud" || cloudSyncEnabled) {
+          const conflict = await invoke<any>("check_cloud_conflict", { gameTitle: game.title });
+          if (conflict) {
+            toast.dismiss(toastId);
+            setConflictInfo(conflict);
+            setConflictModalOpen(true);
+            setBackingUp(false);
+            return;
+          }
+        }
         const message = (target === "cloud" || cloudSyncEnabled)
           ? `[${game.title}] Criando backup local e enviando para a nuvem...`
           : `[${game.title}] Criando backup local...`;
@@ -81,6 +94,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleResolveConflict = async (direction: "local" | "cloud") => {
+    if (!conflictInfo) return;
+    const title = conflictInfo.gameTitle;
+    const id = toast.loading(
+      direction === "local"
+        ? `Resolvendo conflito: mantendo a versão local de "${title}"...`
+        : `Resolvendo conflito: baixando a versão da nuvem de "${title}"...`
+    );
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (direction === "local") {
+        await invoke("backup_game", { gameTitle: title });
+        toast.success(`Versão local de "${title}" salva na nuvem!`, { id });
+      } else {
+        await invoke("restore_game", { gameTitle: title, backupId: null });
+        toast.success(`Versão da nuvem de "${title}" restaurada!`, { id });
+      }
+      setConflictModalOpen(false);
+      setConflictInfo(null);
+    } catch (err) {
+      toast.error(`Falha ao resolver conflito de "${title}": ${err}`, { id });
+    }
+  };
+
   const backupButtonLabel = selectedCount > 0
     ? `${t("button-backup", "Fazer backup")} (${selectedCount}/${games.length})`
     : `${t("ludocard-backup-all", "Fazer backup de todos")} (${games.length}/${games.length})`;
@@ -89,22 +126,24 @@ export default function Dashboard() {
     if (cloudSyncEnabled) {
       return (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <div
-              className={cn(
-                buttonVariants({ variant: "default" }),
-                "flex items-center gap-1.5 cursor-pointer focus:outline-none",
-                (backingUp || games.length === 0) ? "pointer-events-none opacity-50" : ""
-              )}
-            >
-              {backingUp ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <ArrowUpToLine />
-              )}
-              {backupButtonLabel}
-              <ChevronDown className="size-4 ml-1 opacity-70" />
-            </div>
+          <DropdownMenuTrigger
+            render={
+              <div
+                className={cn(
+                  buttonVariants({ variant: "default" }),
+                  "flex items-center gap-1.5 cursor-pointer focus:outline-none",
+                  (backingUp || games.length === 0) ? "pointer-events-none opacity-50" : ""
+                )}
+              />
+            }
+          >
+            {backingUp ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ArrowUpToLine />
+            )}
+            {backupButtonLabel}
+            <ChevronDown className="size-4 ml-1 opacity-70" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-popover/95 backdrop-blur-md border border-border">
             <DropdownMenuItem onClick={() => handleBackupSelected("local")}>
@@ -137,12 +176,23 @@ export default function Dashboard() {
   };
 
   return (
-    <AppShell
-      title={t("ludocard-library", "Biblioteca")}
-      description={t("ludocard-dashboard-desc", "Gerencie e proteja os saves dos seus jogos")}
-      actions={renderActions()}
-    >
-      <LibraryClient selected={selected} setSelected={setSelected} />
-    </AppShell>
+    <>
+      <AppShell
+        title={t("ludocard-library", "Biblioteca")}
+        description={t("ludocard-dashboard-desc", "Gerencie e proteja os saves dos seus jogos")}
+        actions={renderActions()}
+      >
+        <LibraryClient selected={selected} setSelected={setSelected} />
+      </AppShell>
+      <ConflictResolutionModal
+        isOpen={conflictModalOpen}
+        onClose={() => {
+          setConflictModalOpen(false)
+          setConflictInfo(null)
+        }}
+        conflict={conflictInfo}
+        onResolve={handleResolveConflict}
+      />
+    </>
   )
 }

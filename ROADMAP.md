@@ -49,7 +49,7 @@ adicionar uma opção nas configurações para desativar isso e econimzar proces
 - [x] **Modo Portátil (Portable Mode)**: Opção de salvar todos os backups e arquivos de configuração na própria pasta do executável (permitindo colocar o Ludocard em um pendrive/HD externo e levá-lo com você).
 - [x] **Backup de Configurações do Jogo**: Muitas vezes as configurações gráficas, controles e áudio ficam em pastas diferentes dos saves (ex: arquivos `.ini`/`.cfg` em Documents ou AppData). Ter opções para escanear e salvar esses metadados adicionais.
 - [x] **Perfis de Saves (Modding e Campanhas Paralelas)**: Permitir criar "perfis" diferentes para o mesmo jogo. Útil para separar gameplay com mods de uma campanha limpa (vanilla), ou para jogos de personagem único. O app troca os arquivos da pasta ativa dependendo do perfil selecionado.
-- [ ] **Assistente de Conflitos Visual**: Se a nuvem detectar arquivos diferentes entre o PC local e o notebook, exibir uma tela lado a lado comparando as versões com badges claras (ex: *"Este PC (Mais antigo - 10MB)"* vs *"Nuvem (Mais recente - 12MB)"*) para que o usuário decida qual progresso manter.
+- [x] **Assistente de Conflitos Visual**: Se a nuvem detectar arquivos diferentes entre o PC local e o notebook, exibir uma tela lado a lado comparando as versões com badges claras (ex: *"Este PC (Mais antigo - 10MB)"* vs *"Nuvem (Mais recente - 12MB)"*) para que o usuário decida qual progresso manter.
 
 ### Bloco D: Compartilhamento e Recursos Comunitários
 - [x] **Exportação Rápida para Compartilhamento (Share Save)**: Botão para compactar o save atual em um formato próprio (ex: `.ludocard`) ou gerar um link na nuvem para facilitar o envio para amigos ou fóruns.
@@ -95,8 +95,8 @@ Dessa forma, o seu aplicativo fica 100% seguro, leve, e nenhuma senha master sua
 
 
 ### Bloco E: Ferramentas e UX do Jogador
-- [ ] **Atalho Global de Emergência (Quick-Save Manual)**: Atalho customizável (ex: `Ctrl` + `Shift` + `S`) que faz backup instantâneo do jogo em primeiro plano sem precisar de Alt+Tab (um "Save State" nativo para PC).
-- [ ] **Notas de Campanha (O "Diário de Bordo")**: Um campo de texto simples dentro do card de cada jogo para anotações rápidas sobre o progresso (ex: *"Parei logo após derrotar o Boss X. Próximo passo: build de mago e explorar área oeste"*).
+- [ ] **Atalho Global de Emergência (Quick-Save Manual)**: Atalho customizável (ex: `Ctrl` + `Shift` + `S`) que faz backup instantâneo do jogo em primeiro plano sem precisar de Alt+Tab (um "Save State" nativo para PC) colocar um toggle nas configuraç~eos para ativar desativar isso e para mudar a tecla de atalho.
+- [x] **Notas de Campanha (O "Diário de Bordo")**: Um campo de texto simples dentro do card de cada jogo para anotações rápidas sobre o progresso (ex: *"Parei logo após derrotar o Boss X. Próximo passo: build de mago e explorar área oeste"*).
 
 ### Bloco F: Localização e Idiomas
 - [x] **Suporte Multi-idioma**: Tradução completa da interface para múltiplos idiomas (Português, Inglês, Espanhol, Russo, Chines simplificado).

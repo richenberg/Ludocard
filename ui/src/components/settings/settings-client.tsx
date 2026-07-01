@@ -422,37 +422,6 @@ export function SettingsClient() {
             </div>
 
             <Separator />
-            <div className="flex flex-col gap-2.5 py-3">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Database className="size-4 text-primary" />
-                {t("ludocard-supabase-url", "URL do Supabase (Repositório Comunitário)")}
-              </span>
-              <span className="text-xs text-muted-foreground">{t("ludocard-supabase-url-desc", "URL da API do seu projeto Supabase para a aba de comunidade.")}</span>
-              <Input
-                value={supabaseUrl}
-                onChange={(e) => setSupabaseUrl(e.target.value)}
-                placeholder="Ex: https://xyz.supabase.co"
-                className="max-w-md font-mono text-xs"
-              />
-            </div>
-
-            <Separator />
-            <div className="flex flex-col gap-2.5 py-3">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Key className="size-4 text-primary" />
-                {t("ludocard-supabase-key", "Anon Key do Supabase")}
-              </span>
-              <span className="text-xs text-muted-foreground">{t("ludocard-supabase-key-desc", "Chave pública (anon) usada para autenticação anônima nas tabelas.")}</span>
-              <Input
-                type="password"
-                value={supabaseAnonKey}
-                onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                placeholder="Anon API Key pública"
-                className="max-w-md font-mono text-xs"
-              />
-            </div>
-
-            <Separator />
             <div className="flex justify-end pt-4">
               <Button onClick={() => handleSaveSettings()}>{t("ludocard-btn-save-settings", "Salvar Configurações")}</Button>
             </div>

@@ -41,6 +41,7 @@ import { PlatformBadge } from "@/components/platform-badge"
 import { cn } from "@/lib/utils"
 import { type Game, type BackupKind, formatSize } from "@/lib/mock-data"
 import { cleanGameTitle } from "@/components/dashboard/library-client"
+import { ConflictResolutionModal } from "../cloud/conflict-resolution-modal"
 
 interface TagInfo {
   name: string
@@ -112,6 +113,31 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   // Tabs & safety backup check
   const [activeTab, setActiveTab] = useState<"saves" | "presets" | "profiles">("saves")
   const [hasCrashSafetyBackup, setHasCrashSafetyBackup] = useState(false)
+
+  const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [conflictInfo, setConflictInfo] = useState<any>(null)
+
+  // Campaign notes state
+  const [localNotes, setLocalNotes] = useState(game.notes || "")
+
+  useEffect(() => {
+    setLocalNotes(game.notes || "")
+  }, [game])
+
+  const saveNotes = async () => {
+    if (localNotes === (game.notes || "")) return;
+    if (isTauri) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
+        game.notes = localNotes;
+      } catch (err) {
+        toast.error(`Falha ao salvar anotação: ${err}`);
+      }
+    } else {
+      game.notes = localNotes;
+    }
+  };
 
   // Save Profiles states
   const [saveProfiles, setSaveProfiles] = useState<any[]>([])
@@ -196,6 +222,13 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       const id = toast.loading(`Fazendo backup manual de "${game.title}"...`);
       try {
         const { invoke } = await import("@tauri-apps/api/core");
+        const conflict = await invoke<any>("check_cloud_conflict", { gameTitle: game.title });
+        if (conflict) {
+          toast.dismiss(id);
+          setConflictInfo(conflict);
+          setConflictModalOpen(true);
+          return;
+        }
         await invoke("backup_game", { gameTitle: game.title });
         toast.success(`Backup de "${game.title}" criado com sucesso!`, { id });
         if (onRefresh) onRefresh();
@@ -204,6 +237,31 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       }
     } else {
       toast.success(`[Mock] Backup de "${game.title}" criado`);
+    }
+  };
+
+  const handleResolveConflict = async (direction: "local" | "cloud") => {
+    if (!conflictInfo) return;
+    const title = conflictInfo.gameTitle;
+    const id = toast.loading(
+      direction === "local"
+        ? `Resolvendo conflito: mantendo a versão local de "${title}"...`
+        : `Resolvendo conflito: baixando a versão da nuvem de "${title}"...`
+    );
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (direction === "local") {
+        await invoke("backup_game", { gameTitle: title });
+        toast.success(`Versão local de "${title}" salva na nuvem!`, { id });
+      } else {
+        await invoke("restore_game", { gameTitle: title, backupId: null });
+        toast.success(`Versão da nuvem de "${title}" restaurada!`, { id });
+      }
+      setConflictModalOpen(false);
+      setConflictInfo(null);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      toast.error(`Falha ao resolver conflito de "${title}": ${err}`, { id });
     }
   };
 
@@ -1140,6 +1198,27 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 </span>
                 <span className="text-xs font-medium">{formatSize(game.backupsSizeMB || 0)}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Gamepad2 className="size-4 text-primary" />
+                {t("ludocard-campaign-notes", "Diário de Bordo")}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {t("ludocard-campaign-notes-desc", "Anotações rápidas sobre o seu progresso")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-1">
+              <textarea
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                onBlur={saveNotes}
+                placeholder={t("ludocard-campaign-notes-placeholder", "Escreva anotações rápidas sobre o seu progresso neste jogo...")}
+                className="w-full min-h-[100px] resize-y bg-muted/40 border border-border focus:border-primary/50 rounded-md p-2.5 text-xs leading-normal outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
+              />
             </CardContent>
           </Card>
 
@@ -2327,6 +2406,15 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           </Card>
         </div>
       )}
+      <ConflictResolutionModal
+        isOpen={conflictModalOpen}
+        onClose={() => {
+          setConflictModalOpen(false)
+          setConflictInfo(null)
+        }}
+        conflict={conflictInfo}
+        onResolve={handleResolveConflict}
+      />
     </div>
   )
 }

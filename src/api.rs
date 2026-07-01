@@ -24,7 +24,7 @@ pub use crate::{
 pub struct Ludusavi {
     pub config: Config,
     pub manifest: Manifest,
-    layout: BackupLayout,
+    pub layout: BackupLayout,
     title_finder: TitleFinder,
     steam_shortcuts: SteamShortcuts,
 }

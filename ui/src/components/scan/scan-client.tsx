@@ -446,18 +446,20 @@ export function ScanClient() {
             </div>
             {cloudSyncEnabled ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div
-                    className={cn(
-                      buttonVariants({ variant: "default" }),
-                      "flex items-center gap-1.5 cursor-pointer focus:outline-none",
-                      selectedCount === 0 ? "pointer-events-none opacity-50" : ""
-                    )}
-                  >
-                    <CheckCircle2 />
-                    {t("ludocard-backup-selected", "Fazer Backup Selecionados")} {selectedCount > 0 ? `(${selectedCount})` : ""}
-                    <ChevronDown className="size-4 ml-1 opacity-80" />
-                  </div>
+                <DropdownMenuTrigger
+                  render={
+                    <div
+                      className={cn(
+                        buttonVariants({ variant: "default" }),
+                        "flex items-center gap-1.5 cursor-pointer focus:outline-none",
+                        selectedCount === 0 ? "pointer-events-none opacity-50" : ""
+                      )}
+                    />
+                  }
+                >
+                  <CheckCircle2 />
+                  {t("ludocard-backup-selected", "Fazer Backup Selecionados")} {selectedCount > 0 ? `(${selectedCount})` : ""}
+                  <ChevronDown className="size-4 ml-1 opacity-80" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-popover/95 backdrop-blur-md border border-border">
                   <DropdownMenuItem onClick={async () => {

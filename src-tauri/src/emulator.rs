@@ -29,16 +29,17 @@ fn get_cemu_mlc_path(cemu_dir: &Path) -> PathBuf {
     let settings_path = cemu_dir.join("settings.xml");
     if settings_path.exists()
         && let Ok(content) = std::fs::read_to_string(&settings_path)
-            && let Some(start) = content.find("<mlc_path>")
-                && let Some(end) = content[start..].find("</mlc_path>") {
-                    let path_str = content[start + 10..start + end].trim();
-                    if !path_str.is_empty() {
-                        let mlc_path = PathBuf::from(path_str);
-                        if mlc_path.exists() {
-                            return mlc_path;
-                        }
-                    }
-                }
+        && let Some(start) = content.find("<mlc_path>")
+        && let Some(end) = content[start..].find("</mlc_path>")
+    {
+        let path_str = content[start + 10..start + end].trim();
+        if !path_str.is_empty() {
+            let mlc_path = PathBuf::from(path_str);
+            if mlc_path.exists() {
+                return mlc_path;
+            }
+        }
+    }
     cemu_dir.join("mlc01")
 }
 
@@ -46,27 +47,30 @@ fn get_cemu_mlc_path(cemu_dir: &Path) -> PathBuf {
 fn get_yuzu_nand_path(emulator_dir: &Path) -> Option<PathBuf> {
     let mut config_path = emulator_dir.join("user").join("config").join("qt-config.ini");
     if !config_path.exists()
-        && let Some(appdata) = appdata_dir() {
-            config_path = appdata.join("yuzu").join("config").join("qt-config.ini");
-        }
+        && let Some(appdata) = appdata_dir()
+    {
+        config_path = appdata.join("yuzu").join("config").join("qt-config.ini");
+    }
 
     if config_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&config_path) {
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("nand_directory")
-                    && let Some(pos) = trimmed.find('=') {
-                        let path_val = trimmed[pos + 1..].trim();
-                        let path_clean = path_val.trim_matches('"');
-                        if !path_clean.is_empty() {
-                            let path_buf = PathBuf::from(path_clean);
-                            if path_buf.exists() {
-                                return Some(path_buf);
-                            }
-                        }
+        && let Ok(content) = std::fs::read_to_string(&config_path)
+    {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("nand_directory")
+                && let Some(pos) = trimmed.find('=')
+            {
+                let path_val = trimmed[pos + 1..].trim();
+                let path_clean = path_val.trim_matches('"');
+                if !path_clean.is_empty() {
+                    let path_buf = PathBuf::from(path_clean);
+                    if path_buf.exists() {
+                        return Some(path_buf);
                     }
+                }
             }
         }
+    }
     None
 }
 
@@ -217,9 +221,10 @@ fn decode_wii_title_id(hex_str: &str) -> Option<String> {
             }
         }
         if let Ok(s) = String::from_utf8(bytes)
-            && s.chars().all(|c| c.is_ascii_alphanumeric()) {
-                return Some(s);
-            }
+            && s.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            return Some(s);
+        }
     }
     None
 }
@@ -347,149 +352,160 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
         "Ryujinx" => {
             let mut save_root = emulator_dir.join("portable").join("bis").join("user").join("save");
             if !save_root.exists()
-                && let Some(appdata) = appdata_dir() {
-                    save_root = appdata.join("Ryujinx").join("bis").join("user").join("save");
-                }
+                && let Some(appdata) = appdata_dir()
+            {
+                save_root = appdata.join("Ryujinx").join("bis").join("user").join("save");
+            }
 
             if save_root.exists()
-                && let Ok(profiles) = std::fs::read_dir(&save_root) {
-                    for profile in profiles.flatten() {
-                        if profile.path().is_dir()
-                            && let Ok(titles) = std::fs::read_dir(profile.path()) {
-                                for title in titles.flatten() {
-                                    let name_str = title.file_name().to_string_lossy().to_string();
-                                    if title.path().is_dir() && is_title_id(&name_str) {
-                                        let wildcard_path = save_root
-                                            .join("*")
-                                            .join(&name_str)
-                                            .to_string_lossy()
-                                            .to_string()
-                                            .replace('\\', "/");
-                                        let game_title = get_switch_game_name(&name_str)
-                                            .map(|s| s.to_string())
-                                            .or_else(|| online_lookup_switch(&name_str))
-                                            .unwrap_or_else(|| format!("Switch Game ({})", name_str.to_uppercase()));
+                && let Ok(profiles) = std::fs::read_dir(&save_root)
+            {
+                for profile in profiles.flatten() {
+                    if profile.path().is_dir()
+                        && let Ok(titles) = std::fs::read_dir(profile.path())
+                    {
+                        for title in titles.flatten() {
+                            let name_str = title.file_name().to_string_lossy().to_string();
+                            if title.path().is_dir() && is_title_id(&name_str) {
+                                let wildcard_path = save_root
+                                    .join("*")
+                                    .join(&name_str)
+                                    .to_string_lossy()
+                                    .to_string()
+                                    .replace('\\', "/");
+                                let game_title = get_switch_game_name(&name_str)
+                                    .map(|s| s.to_string())
+                                    .or_else(|| online_lookup_switch(&name_str))
+                                    .unwrap_or_else(|| format!("Switch Game ({})", name_str.to_uppercase()));
 
-                                        if !saves.iter().any(|s: &DetectedSave| s.game_title == game_title) {
-                                            saves.push(DetectedSave {
-                                                game_title,
-                                                save_path: wildcard_path,
-                                                emulator_name: "Ryujinx".to_string(),
-                                            });
-                                        }
-                                    }
+                                if !saves.iter().any(|s: &DetectedSave| s.game_title == game_title) {
+                                    saves.push(DetectedSave {
+                                        game_title,
+                                        save_path: wildcard_path,
+                                        emulator_name: "Ryujinx".to_string(),
+                                    });
                                 }
                             }
+                        }
                     }
                 }
+            }
         }
         "Dolphin" => {
             let user_path = get_dolphin_user_path(emulator_dir);
             let wii_title_root = user_path.join("Wii").join("title").join("00010000");
 
             if wii_title_root.exists()
-                && let Ok(titles) = std::fs::read_dir(&wii_title_root) {
-                    for title in titles.flatten() {
-                        let name_str = title.file_name().to_string_lossy().to_string();
-                        if title.path().is_dir() && is_wii_hex_id(&name_str) {
-                            let save_data_dir = title.path().join("data");
-                            if save_data_dir.exists() {
-                                let ascii_id = decode_wii_title_id(&name_str).unwrap_or_else(|| name_str.clone());
-                                let game_title = get_wii_game_name(&ascii_id)
-                                    .map(|s| s.to_string())
-                                    .unwrap_or_else(|| format!("Wii Game ({})", ascii_id.to_uppercase()));
+                && let Ok(titles) = std::fs::read_dir(&wii_title_root)
+            {
+                for title in titles.flatten() {
+                    let name_str = title.file_name().to_string_lossy().to_string();
+                    if title.path().is_dir() && is_wii_hex_id(&name_str) {
+                        let save_data_dir = title.path().join("data");
+                        if save_data_dir.exists() {
+                            let ascii_id = decode_wii_title_id(&name_str).unwrap_or_else(|| name_str.clone());
+                            let game_title = get_wii_game_name(&ascii_id)
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| format!("Wii Game ({})", ascii_id.to_uppercase()));
 
-                                saves.push(DetectedSave {
-                                    game_title,
-                                    save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
-                                    emulator_name: "Dolphin".to_string(),
-                                });
-                            }
+                            saves.push(DetectedSave {
+                                game_title,
+                                save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "Dolphin".to_string(),
+                            });
                         }
                     }
                 }
+            }
         }
         "Cemu" => {
             let mlc_path = get_cemu_mlc_path(emulator_dir);
             let save_root = mlc_path.join("usr").join("save").join("00050000");
             if save_root.exists()
-                && let Ok(titles) = std::fs::read_dir(&save_root) {
-                    for title in titles.flatten() {
-                        let name_str = title.file_name().to_string_lossy().to_string();
-                        if title.path().is_dir() && is_wii_hex_id(&name_str) {
-                            let save_data_dir = title.path().join("user");
-                            if save_data_dir.exists() {
-                                let game_title = get_wiiu_game_name(&name_str)
-                                    .map(|s| s.to_string())
-                                    .or_else(|| online_lookup_wiiu(&name_str))
-                                    .unwrap_or_else(|| format!("Wii U Game ({})", name_str.to_uppercase()));
+                && let Ok(titles) = std::fs::read_dir(&save_root)
+            {
+                for title in titles.flatten() {
+                    let name_str = title.file_name().to_string_lossy().to_string();
+                    if title.path().is_dir() && is_wii_hex_id(&name_str) {
+                        let save_data_dir = title.path().join("user");
+                        if save_data_dir.exists() {
+                            let game_title = get_wiiu_game_name(&name_str)
+                                .map(|s| s.to_string())
+                                .or_else(|| online_lookup_wiiu(&name_str))
+                                .unwrap_or_else(|| format!("Wii U Game ({})", name_str.to_uppercase()));
 
-                                saves.push(DetectedSave {
-                                    game_title,
-                                    save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
-                                    emulator_name: "Cemu".to_string(),
-                                });
-                            }
+                            saves.push(DetectedSave {
+                                game_title,
+                                save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "Cemu".to_string(),
+                            });
                         }
                     }
                 }
+            }
         }
         "RetroArch" => {
             let mut saves_dir = emulator_dir.join("saves");
             if !saves_dir.exists()
-                && let Some(appdata) = appdata_dir() {
-                    saves_dir = appdata.join("RetroArch").join("saves");
-                }
+                && let Some(appdata) = appdata_dir()
+            {
+                saves_dir = appdata.join("RetroArch").join("saves");
+            }
 
             if saves_dir.exists()
-                && let Ok(entries) = std::fs::read_dir(&saves_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_file() {
-                            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                            if (ext == "srm" || ext == "sav")
-                                && let Some(stem) = path.file_stem() {
-                                    let game_title = stem.to_string_lossy().to_string();
-                                    saves.push(DetectedSave {
-                                        game_title,
-                                        save_path: path.to_string_lossy().to_string().replace('\\', "/"),
-                                        emulator_name: "RetroArch".to_string(),
-                                    });
-                                }
+                && let Ok(entries) = std::fs::read_dir(&saves_dir)
+            {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                        if (ext == "srm" || ext == "sav")
+                            && let Some(stem) = path.file_stem()
+                        {
+                            let game_title = stem.to_string_lossy().to_string();
+                            saves.push(DetectedSave {
+                                game_title,
+                                save_path: path.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "RetroArch".to_string(),
+                            });
                         }
                     }
                 }
+            }
         }
         "PCSX2" => {
             let mut memcards_dir = emulator_dir.join("memcards");
             if !memcards_dir.exists()
-                && let Some(doc_dir) = document_dir() {
-                    memcards_dir = doc_dir.join("PCSX2").join("memcards");
-                }
+                && let Some(doc_dir) = document_dir()
+            {
+                memcards_dir = doc_dir.join("PCSX2").join("memcards");
+            }
 
             if memcards_dir.exists()
-                && let Ok(entries) = std::fs::read_dir(&memcards_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_dir() {
-                            let game_title = entry.file_name().to_string_lossy().to_string();
-                            if !game_title.to_lowercase().contains("default") && !game_title.starts_with('.') {
-                                saves.push(DetectedSave {
-                                    game_title,
-                                    save_path: path.to_string_lossy().to_string().replace('\\', "/"),
-                                    emulator_name: "PCSX2".to_string(),
-                                });
-                            }
+                && let Ok(entries) = std::fs::read_dir(&memcards_dir)
+            {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let game_title = entry.file_name().to_string_lossy().to_string();
+                        if !game_title.to_lowercase().contains("default") && !game_title.starts_with('.') {
+                            saves.push(DetectedSave {
+                                game_title,
+                                save_path: path.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "PCSX2".to_string(),
+                            });
                         }
                     }
                 }
+            }
         }
         "mGBA" => {
             let mut saves_dir = emulator_dir.join("saves");
             if !saves_dir.exists()
-                && let Some(doc_dir) = document_dir() {
-                    saves_dir = doc_dir.join("mGBA").join("saves");
-                }
+                && let Some(doc_dir) = document_dir()
+            {
+                saves_dir = doc_dir.join("mGBA").join("saves");
+            }
 
             let search_dir = if saves_dir.exists() {
                 saves_dir
@@ -503,14 +519,15 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                     if path.is_file() {
                         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
                         if ext == "sav"
-                            && let Some(stem) = path.file_stem() {
-                                let game_title = stem.to_string_lossy().to_string();
-                                saves.push(DetectedSave {
-                                    game_title,
-                                    save_path: path.to_string_lossy().to_string().replace('\\', "/"),
-                                    emulator_name: "mGBA".to_string(),
-                                });
-                            }
+                            && let Some(stem) = path.file_stem()
+                        {
+                            let game_title = stem.to_string_lossy().to_string();
+                            saves.push(DetectedSave {
+                                game_title,
+                                save_path: path.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "mGBA".to_string(),
+                            });
+                        }
                     }
                 }
             }
@@ -518,9 +535,10 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
         "Citra" => {
             let mut sdmc_root = emulator_dir.join("sdmc").join("Nintendo 3DS");
             if !sdmc_root.exists()
-                && let Some(appdata) = appdata_dir() {
-                    sdmc_root = appdata.join("Citra").join("sdmc").join("Nintendo 3DS");
-                }
+                && let Some(appdata) = appdata_dir()
+            {
+                sdmc_root = appdata.join("Citra").join("sdmc").join("Nintendo 3DS");
+            }
 
             if sdmc_root.exists() {
                 for entry in WalkDir::new(&sdmc_root).into_iter().flatten() {
@@ -529,39 +547,40 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                         let name_str = path.file_name().unwrap_or_default().to_string_lossy().to_string();
                         if is_wii_hex_id(&name_str)
                             && let Some(parent) = path.parent()
-                                && parent.file_name().unwrap_or_default().to_string_lossy() == "00040000" {
-                                    let save_data_dir = path.join("data").join("00000001");
-                                    if save_data_dir.exists() {
-                                        let game_title = match name_str.to_lowercase().as_str() {
-                                            "000ec300" => "The Legend of Zelda: A Link Between Worlds",
-                                            "00086300" => "The Legend of Zelda: Ocarina of Time 3D",
-                                            "00125a00" => "The Legend of Zelda: Majora's Mask 3D",
-                                            "00030800" => "Mario Kart 7",
-                                            "00030700" => "Super Mario 3D Land",
-                                            "0011c400" => "Super Smash Bros. for Nintendo 3DS",
-                                            "00055d00" => "Pokémon X",
-                                            "00055e00" => "Pokémon Y",
-                                            "0011c500" => "Pokémon Omega Ruby",
-                                            "0011c600" => "Pokémon Alpha Sapphire",
-                                            "00164800" => "Pokémon Sun",
-                                            "00164900" => "Pokémon Moon",
-                                            "001b5000" => "Pokémon Ultra Sun",
-                                            "001b5100" => "Pokémon Ultra Moon",
-                                            _ => name_str.as_str(),
-                                        };
-                                        let display_title = if game_title == name_str.as_str() {
-                                            format!("3DS Game ({})", game_title.to_uppercase())
-                                        } else {
-                                            game_title.to_string()
-                                        };
+                            && parent.file_name().unwrap_or_default().to_string_lossy() == "00040000"
+                        {
+                            let save_data_dir = path.join("data").join("00000001");
+                            if save_data_dir.exists() {
+                                let game_title = match name_str.to_lowercase().as_str() {
+                                    "000ec300" => "The Legend of Zelda: A Link Between Worlds",
+                                    "00086300" => "The Legend of Zelda: Ocarina of Time 3D",
+                                    "00125a00" => "The Legend of Zelda: Majora's Mask 3D",
+                                    "00030800" => "Mario Kart 7",
+                                    "00030700" => "Super Mario 3D Land",
+                                    "0011c400" => "Super Smash Bros. for Nintendo 3DS",
+                                    "00055d00" => "Pokémon X",
+                                    "00055e00" => "Pokémon Y",
+                                    "0011c500" => "Pokémon Omega Ruby",
+                                    "0011c600" => "Pokémon Alpha Sapphire",
+                                    "00164800" => "Pokémon Sun",
+                                    "00164900" => "Pokémon Moon",
+                                    "001b5000" => "Pokémon Ultra Sun",
+                                    "001b5100" => "Pokémon Ultra Moon",
+                                    _ => name_str.as_str(),
+                                };
+                                let display_title = if game_title == name_str.as_str() {
+                                    format!("3DS Game ({})", game_title.to_uppercase())
+                                } else {
+                                    game_title.to_string()
+                                };
 
-                                        saves.push(DetectedSave {
-                                            game_title: display_title,
-                                            save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
-                                            emulator_name: "Citra".to_string(),
-                                        });
-                                    }
-                                }
+                                saves.push(DetectedSave {
+                                    game_title: display_title,
+                                    save_path: save_data_dir.to_string_lossy().to_string().replace('\\', "/"),
+                                    emulator_name: "Citra".to_string(),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -569,26 +588,28 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
         "PPSSPP" => {
             let mut savedata_dir = emulator_dir.join("memstick").join("PSP").join("SAVEDATA");
             if !savedata_dir.exists()
-                && let Some(doc_dir) = document_dir() {
-                    savedata_dir = doc_dir.join("PPSSPP").join("PSP").join("SAVEDATA");
-                }
+                && let Some(doc_dir) = document_dir()
+            {
+                savedata_dir = doc_dir.join("PPSSPP").join("PSP").join("SAVEDATA");
+            }
 
             if savedata_dir.exists()
-                && let Ok(entries) = std::fs::read_dir(&savedata_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_dir() {
-                            let folder_name = entry.file_name().to_string_lossy().to_string();
-                            if !folder_name.starts_with('.') {
-                                saves.push(DetectedSave {
-                                    game_title: folder_name.clone(),
-                                    save_path: path.to_string_lossy().to_string().replace('\\', "/"),
-                                    emulator_name: "PPSSPP".to_string(),
-                                });
-                            }
+                && let Ok(entries) = std::fs::read_dir(&savedata_dir)
+            {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let folder_name = entry.file_name().to_string_lossy().to_string();
+                        if !folder_name.starts_with('.') {
+                            saves.push(DetectedSave {
+                                game_title: folder_name.clone(),
+                                save_path: path.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "PPSSPP".to_string(),
+                            });
                         }
                     }
                 }
+            }
         }
         _ => {}
     }
@@ -692,16 +713,17 @@ fn online_lookup_switch(title_id: &str) -> Option<String> {
     let url = format!("https://tinfoil.io/Title/{}", id_lower);
     if let Ok(resp) = client.get(&url).send()
         && resp.status().is_success()
-            && let Ok(html) = resp.text()
-                && let Some(pos) = html.find("og:title")
-                    && let Some(content_pos) = html[pos..].find("content=\"")
-                        && let Some(end_pos) = html[pos + content_pos + 9..].find('"') {
-                            let name = &html[pos + content_pos + 9..pos + content_pos + 9 + end_pos];
-                            let cleaned = name.trim().to_string();
-                            if !cleaned.is_empty() {
-                                return Some(cleaned);
-                            }
-                        }
+        && let Ok(html) = resp.text()
+        && let Some(pos) = html.find("og:title")
+        && let Some(content_pos) = html[pos..].find("content=\"")
+        && let Some(end_pos) = html[pos + content_pos + 9..].find('"')
+    {
+        let name = &html[pos + content_pos + 9..pos + content_pos + 9 + end_pos];
+        let cleaned = name.trim().to_string();
+        if !cleaned.is_empty() {
+            return Some(cleaned);
+        }
+    }
     None
 }
 
@@ -713,24 +735,25 @@ fn online_lookup_wiiu(title_id: &str) -> Option<String> {
     let url = "https://raw.githubusercontent.com/Laf111/CEMU-Batch-Framework/master/resources/WiiU-Titles-Library.csv";
     if let Ok(resp) = client.get(url).send()
         && resp.status().is_success()
-            && let Ok(content) = resp.text() {
-                let id_upper = title_id.to_uppercase();
-                for line in content.lines() {
-                    let line_upper = line.to_uppercase();
-                    if line_upper.contains(&id_upper) {
-                        let parts: Vec<&str> = if line.contains(';') {
-                            line.split(';').collect()
-                        } else {
-                            line.split(',').collect()
-                        };
-                        if parts.len() > 1 {
-                            let name = parts[1].trim().trim_matches('"').trim();
-                            if !name.is_empty() {
-                                return Some(name.to_string());
-                            }
-                        }
+        && let Ok(content) = resp.text()
+    {
+        let id_upper = title_id.to_uppercase();
+        for line in content.lines() {
+            let line_upper = line.to_uppercase();
+            if line_upper.contains(&id_upper) {
+                let parts: Vec<&str> = if line.contains(';') {
+                    line.split(';').collect()
+                } else {
+                    line.split(',').collect()
+                };
+                if parts.len() > 1 {
+                    let name = parts[1].trim().trim_matches('"').trim();
+                    if !name.is_empty() {
+                        return Some(name.to_string());
                     }
                 }
             }
+        }
+    }
     None
 }

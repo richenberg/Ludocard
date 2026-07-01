@@ -176,7 +176,9 @@ pub fn app_dir() -> StrictPath {
         return StrictPath::from(dir.clone());
     }
 
-    if is_portable() && let Ok(mut flag) = std::env::current_exe() {
+    if is_portable()
+        && let Ok(mut flag) = std::env::current_exe()
+    {
         flag.pop();
         return StrictPath::from(flag);
     }

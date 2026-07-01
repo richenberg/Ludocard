@@ -1,157 +1,96 @@
-# ![Logo](assets/icon.svg) Ludusavi
-Ludusavi is a tool for backing up your PC video game save data,
-written in [Rust](https://www.rust-lang.org).
-It is cross-platform and supports multiple game stores.
+# 🎮 Ludocard
 
-## Features
-* Ability to back up data from more than 19,000 games plus your own custom entries.
-* Backup and restore for Steam, GOG, Epic, Heroic, Lutris, and other game libraries.
-* Both a graphical interface and command line interface for scripting.
-  Tab completion is available for Bash, Fish, Zsh, PowerShell, and Elvish.
-* Support for:
-  * Saves that are stored as files and in the Windows registry.
-  * Proton saves with Steam.
-  * Steam screenshots.
-* Available as a [Playnite](https://playnite.link) extension:
-  https://github.com/mtkennerly/ludusavi-playnite
-* Works on the Steam Deck.
+**Ludocard** is a lightweight, modern, and beautiful game save manager for PC. It began as a simple fork of **Ludosavi**, but it has evolved tremendously into a feature-rich, community-driven backup and share hub.
 
-This tool uses the [Ludusavi Manifest](https://github.com/mtkennerly/ludusavi-manifest)
-for info on what to back up for each game.
-The data is primarily sourced from [PCGamingWiki](https://www.pcgamingwiki.com/wiki/Home),
-so please contribute any new or fixed data back to the wiki itself,
-and your improvements will be incorporated into Ludusavi's data as well.
+Join our community on [Discord](https://discord.gg/U2DEbDqgm)!
 
-If you'd like to help translate Ludusavi into other languages,
-[check out the Crowdin project](https://crowdin.com/project/ludusavi).
+> ℹ️ **Developer's Note & AI-Assisted Development**
+> This project was created by a non-programmer who wanted a better visual, and add more modern features to the game save manager. The entire application, including its Rust backend, Tauri integrations, and React/Tailwind frontend, was built, refactored, and optimized using advanced Artificial Intelligence (such as Gemini). It stands as a testament to what AI collaboration can achieve!
 
-## Demo
-<!-- These anchors are kept for compatibility with old section headers. -->
-<a name="gui"></a>
+---
 
-> ![GUI demo of previewing a backup](docs/demo-gui.gif)
+## 🌟 Highlighted Features
 
-## Installation
-<!-- These anchors are kept for compatibility with old section headers. -->
-<a name="requirements"></a>
-<a name="methods"></a>
+### 🌍 Save Share Hub (Sharing Saves)
+No more hunting through sketchy forums or manually emailing files to share progress. Ludocard features an integrated sharing ecosystem:
+- **One-Click Share**: Instantly package and upload your current save slot of any game directly to the public share hub.
+- **Brutal Compression**: Built in Rust, the app uses modern compression algorithms (like `zstd` or `lzma`) to shrink large save folders down to minimal files before upload.
+- **Ironclad Cloud Security**: For security, no cloud master keys are embedded inside the client app. Instead, it requests secure, short-lived **Presigned URLs** from a Supabase Edge Function to perform direct, encrypted uploads/downloads to Cloudflare R2 storage.
+- **Community Checkpoint Repository**: Download and automatically install checkpoints uploaded by the community (e.g., *"Before the final boss"*, *"100% completion"*, *"Skip tutorial"*).
+- **Capped & Clean**: Features auto-delete rules for inactive files (deletes saves after 90 days of no downloads), storage limits per user, and abuse prevention.
 
-Download the executable for Windows, Linux, or Mac from the
-[releases page](https://github.com/mtkennerly/ludusavi/releases).
-It's portable, so you can simply download it and put it anywhere on your system.
+### 🎛️ Preset & Graphics Configuration Sharing
+Tired of manually tweaking `.ini` and `.cfg` files to optimize your game's graphics or controls?
+- **Crash-Safe "Seguro-Crash" Flow**: When you apply a community configuration preset, Ludocard automatically takes a backup of your original settings. If the game crashes or has issues, you can restore your original files with one click.
+- **Hardware-Attached Presets**: When sharing a preset, the app automatically fetches and attaches your system specs (CPU, GPU, and RAM) using Rust, helping other users find the perfect configuration for their hardware.
+- **Potato Mode Presets**: Easily find and inject ultra-low configs designed to disable heavy shadows and maximize FPS for low-end or older computers.
+- **Community Voting & Moderation**: Integrated upvote/downvote system (👍/👎) to measure performance gains, and a reporting system (🚨) that auto-hides presets with 3 or more reports for safety.
 
-If you prefer, Ludusavi is also available via
-[Winget, Scoop, Flatpak, and Cargo](docs/help/installation.md).
+---
 
-Note:
+## 🛠️ Complete Feature Roadmap & Status
 
-* Windows users may see a popup that says
-  "Windows protected your PC",
-  because Windows does not recognize the program's publisher.
-  Click "more info" and then "run anyway" to start the program.
-* Mac users may see a popup that says
-  "Ludusavi can't be opened because it is from an unidentified developer".
-  To allow Ludusavi to run, please refer to [this article](https://support.apple.com/en-us/102445),
-  specifically the section on `If you want to open an app [...] from an unidentified developer`.
+### 🟢 1. Core Mechanics & Frontend (Completed)
+- **Modern UI (React + Tailwind v4 + Vite)**: A premium-looking dashboard with a sidebar, fluid navigation, and responsive sections (Library, Scan, Cloud, Settings, Support).
+- **Tauri Commands (Rust Bridge)**: Performance-oriented Rust commands to list libraries (`get_games`), backup/restore saves (`backup_game` / `restore_game`), and manage settings.
+- **Smart Active Detection**: Prevents false-positive game detections by checking if the game's executable (`.exe`) is actually present in game store installation folders (Steam, Epic, GOG, Heroic, Lutris, etc.).
+- **Smart Library Sorting**: Sort your library by "Recently Played" (based on save file write times), "Size", or alphabetical "A-Z".
+- **Local or Cloud Backup Selection**: Flexible backup button with a dropdown selector to choose between local backups or cloud syncing.
 
-## Usage
-<!-- These anchors are kept for compatibility with old section headers. -->
-<a name="backup-exclusions"></a>
-<a name="backup-retention"></a>
-<a name="backup-structure"></a>
-<a name="backup-validation"></a>
-<a name="cli-api"></a>
-<a name="cloud-backup"></a>
-<a name="command-line"></a>
-<a name="configuration"></a>
-<a name="configuration-file"></a>
-<a name="custom-games"></a>
-<a name="duplicates"></a>
-<a name="environment-variables"></a>
-<a name="filter"></a>
-<a name="game-launch-wrapping"></a>
-<a name="logging"></a>
-<a name="redirects"></a>
-<a name="roots"></a>
-<a name="selective-scanning"></a>
-<a name="troubleshooting"></a>
+### 🟢 2. Automation & System Integration (Completed)
+- **File Watcher (Active Save Monitor)**: Monitors save folders in real-time. When you close a game, it triggers a silent backup in the background.
+- **System Tray Integration**: Clicking the close window button minimizes Ludocard to the Windows system tray (near the clock), continuing background monitoring with close to zero RAM/CPU consumption.
+- **Run at Windows Startup**: Toggle option in settings to launch the app automatically with Windows.
 
-Detailed help documentation is available for several topics.
+### 🟢 3. Advanced Backup Features (Completed)
+- **Version Pinning (Pin Backup)**: "Pin" or lock specific backups in your timeline (e.g., before making a major choice in an RPG) to prevent them from being auto-deleted when the backup retention limit is reached.
+- **Portable Mode**: Save all backups and configuration files inside the executable's folder, allowing you to run Ludocard entirely from a USB drive or external hard disk.
+- **Game Settings Backup**: Go beyond saves and back up graphic/control configuration folders (often located in separate AppData or Documents folders).
+- **Multiple Save Profiles**: Separate your gameplay styles (e.g., Modded vs. Vanilla, Character A vs. Character B). Switch active folders instantly.
+- **Visual Conflict Assistant**: Side-by-side comparison screen (e.g., *"This PC (Older - 10MB)"* vs. *"Cloud (Newer - 12MB)"*) when local and cloud saves drift.
 
-### General
-* [Backup automation](/docs/help/backup-automation.md)
-* [Backup exclusions](/docs/help/backup-exclusions.md)
-* [Backup retention](/docs/help/backup-retention.md)
-* [Backup validation](/docs/help/backup-validation.md)
-* [Cloud backup](/docs/help/cloud-backup.md)
-* [Custom games](/docs/help/custom-games.md)
-* [Duplicates](/docs/help/duplicates.md)
-* [Filter](/docs/help/filter.md)
-* [Game launch wrapping](/docs/help/game-launch-wrapping.md)
-* [Redirects](/docs/help/redirects.md)
-* [Roots](/docs/help/roots.md)
-* [Selective scanning](/docs/help/selective-scanning.md)
-* [Transfer between operating systems](/docs/help/transfer-between-operating-systems.md)
+### 🟢 4. Gamer Tools & UX (Completed)
+- **Global Emergency Quick-Save**: A customizable keyboard shortcut (e.g., `Ctrl + Shift + S`) that performs an instant save-state of your active game, accompanied by a subtle Steam-like toast notification and chime.
+- **Campaign Notes (The Captain's Log)**: An editable text field inside each game card to write down notes about your build, objectives, or current checklist.
+- **Automatic Cover Downloads**: Automatically fetches vertical game cover art from Steam's API or SteamGridDB, eliminating boring placeholders.
 
-### Interfaces
-* [Application folder](/docs/help/application-folder.md)
-* [Backup structure](/docs/help/backup-structure.md)
-* [Command line](/docs/help/command-line.md)
-* [Configuration file](/docs/help/configuration-file.md)
-* [Environment variables](/docs/help/environment-variables.md)
-* [Logging](/docs/help/logging.md)
+### 🟢 5. Emulator Support & Title Detection (Completed)
+- **Emulator Integration**: Automatically detects and manages saves from major emulators (Yuzu, Ryujinx, Dolphin, PCSX2, RetroArch, mGBA, Citra, etc.).
+- **Smart Rom & Title ID Mapping**: Reads Switch/Wii Title IDs or GBA/PS2 Rom file names to register them under friendly names (e.g., `[Yuzu] The Legend of Zelda: Tears of the Kingdom`).
+- **Premium Emulation Badges**: Visual tags with custom-colored branding for each emulator platform.
 
-### Other
-* [Troubleshooting](/docs/help/troubleshooting.md)
-* [What if my saves aren't found?](/docs/help/missing-saves.md)
+### 🟢 6. Project Support & Administration (Completed)
+- **Support Page (`/support`)**: Integrated donation screen showing server costs (Cloudflare R2, Supabase) with quick links for Itch.io and PIX support.
+- **Admin Control Panel**: Hidden/password-protected dashboard to manage cloud saves, delete corrupted or offensive presets, and monitor Cloudflare R2 quota usage.
+- **Multi-language Support (Fluent)**: Fully localized into English, Portuguese, Spanish, Russian, and Simplified Chinese.
 
-## Community
+---
 
-The community has created some additional resources you may find useful.
-Please note that this is not an exhaustive list
-and that these projects are not officially affiliated with Ludusavi itself:
+## 🚀 Running & Developing Locally
 
-* Secondary manifests:
-  * https://github.com/BloodShed-Oni/ludusavi-extra-manifests
-  * https://github.com/hblamo/ludusavi-emudeck-manifest
-  * https://github.com/hvmzx/ludusavi-manifests
-    * This has an example of using a scheduled GitHub workflow
-      to generate a manifest that adds more paths to the primary manifest's entries.
-* Plugins for other applications:
-  * Decky Loader on Steam Deck: https://github.com/GedasFX/decky-ludusavi
-  * LaunchBox: https://github.com/johagan94/ludusavi-launchbox
-  * VS Code: https://marketplace.visualstudio.com/items?itemName=claui.ludusavi
-* Tools:
-  * https://github.com/jose-l-martins/GSM-to-Ludusavi-converter
+Ludocard is built with [Tauri v2](https://tauri.app/), [React](https://react.dev/), [Tailwind CSS v4](https://tailwindcss.com/), and [Rust](https://www.rust-lang.org/).
 
-## Comparison with other tools
-There are other excellent backup tools available, but not a singular
-cross-platform and cross-store solution:
+### Prerequisites
+- Node.js & npm / pnpm
+- Rust compiler and toolchain
 
-* [GameSave Manager](https://www.gamesave-manager.com) (as of v3.1.512.0):
-  * Only supports Windows.
-  * Much slower than Ludusavi. On the same hardware and with default settings,
-    an initial scan of the whole system takes 2 minutes in GSM versus 10 seconds in Ludusavi.
-    Performing a backup immediately after that scan takes 4 minutes 16 seconds in GSM versus 4.5 seconds in Ludusavi.
-    In this test, GSM found 257 games with 2.84 GB, and Ludusavi found 297 games with 2.95 GiB.
-  * Closed source, so the community cannot contribute improvements.
-  * Interface can be slow or unresponsive.
-    For example, when clicking "select all / de-select all", each checkbox has to individually toggle itself.
-    With 257 games, this means you end up having to wait around 42 seconds.
-  * Minimal command line interface.
-  * Can create symlinks for games and game data.
-    Ludusavi does not support this.
-* [Game Backup Monitor](https://mikemaximus.github.io/gbm-web) (as of v1.2.2):
-  * Does not support Mac.
-  * Database only covers 577 games (as of 2022-11-16), although it can also import
-    the Ludusavi manifest starting in 1.3.1.
-  * No command line interface.
-  * Can automatically back up saves for a game after you play it.
-    Ludusavi can only do that in conjunction with a launcher like Playnite.
-* [Gaming Backup Multitool for Linux](https://supremesonicbrazil.gitlab.io/gbml-web) (as of v1.4.0.0):
-  * Only supports Linux and Steam.
-  * Database is not actively updated. As of 2022-11-16, the last update was 2018-06-05.
-  * No command line interface.
+### Setup & Run
+1. Install frontend dependencies:
+   ```bash
+   cd ui
+   pnpm install
+   ```
+2. Run in development mode:
+   ```bash
+   # In the root directory:
+   npm run tauri dev
+   ```
+3. Build standalone production binary (`Ludocard.exe`):
+   ```bash
+   npm run tauri build
+   ```
 
-## Development
-Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
+---
+
+## 📄 License
+This project is open-source. For details on permissions and redistribution, see [LICENSE](./LICENSE).

@@ -48,7 +48,7 @@ adicionar uma opção nas configurações para desativar isso e econimzar proces
 - [x] **Bloqueio de Versão (Pin Backup)**: Permitir "alfinetar" ou "bloquear" um backup específico no histórico (ex: antes de uma escolha importante no jogo), impedindo que ele seja deletado automaticamente quando o limite de retenção for atingido.
 - [x] **Modo Portátil (Portable Mode)**: Opção de salvar todos os backups e arquivos de configuração na própria pasta do executável (permitindo colocar o Ludocard em um pendrive/HD externo e levá-lo com você).
 - [x] **Backup de Configurações do Jogo**: Muitas vezes as configurações gráficas, controles e áudio ficam em pastas diferentes dos saves (ex: arquivos `.ini`/`.cfg` em Documents ou AppData). Ter opções para escanear e salvar esses metadados adicionais.
-- [ ] **Perfis de Saves (Modding e Campanhas Paralelas)**: Permitir criar "perfis" diferentes para o mesmo jogo. Útil para separar gameplay com mods de uma campanha limpa (vanilla), ou para jogos de personagem único. O app troca os arquivos da pasta ativa dependendo do perfil selecionado.
+- [x] **Perfis de Saves (Modding e Campanhas Paralelas)**: Permitir criar "perfis" diferentes para o mesmo jogo. Útil para separar gameplay com mods de uma campanha limpa (vanilla), ou para jogos de personagem único. O app troca os arquivos da pasta ativa dependendo do perfil selecionado.
 - [ ] **Assistente de Conflitos Visual**: Se a nuvem detectar arquivos diferentes entre o PC local e o notebook, exibir uma tela lado a lado comparando as versões com badges claras (ex: *"Este PC (Mais antigo - 10MB)"* vs *"Nuvem (Mais recente - 12MB)"*) para que o usuário decida qual progresso manter.
 
 ### Bloco D: Compartilhamento e Recursos Comunitários

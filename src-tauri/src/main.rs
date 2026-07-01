@@ -168,6 +168,10 @@ fn main() {
             commands::add_emulator,
             commands::remove_emulator,
             commands::get_emulators,
+            commands::list_save_profiles,
+            commands::create_save_profile,
+            commands::switch_save_profile,
+            commands::delete_save_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ludocard");

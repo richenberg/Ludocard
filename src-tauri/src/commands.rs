@@ -3643,6 +3643,559 @@ pub async fn test_cloud_connection(app: tauri::AppHandle) -> Result<(), String> 
     .map_err(|e| e.to_string())?
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveProfile {
+    pub id: String,
+    pub game_id: String,
+    pub title: String,
+    pub description: String,
+    pub created_at: String,
+    pub active: bool,
+}
+
+async fn save_profile_state_internal(
+    app: &tauri::AppHandle,
+    game_title: &str,
+    game_id: &str,
+    profile_id: &str,
+) -> Result<(), String> {
+    let (profile_dir, mapping) = tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.to_string();
+        let profile_id = profile_id.to_string();
+        move || -> Result<(PathBuf, HashMap<String, String>), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&profile_id);
+            std::fs::create_dir_all(&profile_dir)
+                .map_err(|e| format!("Falha ao criar diretório do perfil de save: {}", e))?;
+
+            let mapping_path = profile_dir.join("mapping.json");
+            let mapping = if mapping_path.exists() {
+                let content = std::fs::read_to_string(&mapping_path)
+                    .map_err(|e| format!("Falha ao ler mapeamento do perfil: {}", e))?;
+                serde_json::from_str(&content)
+                    .map_err(|e| format!("Mapeamento do perfil corrompido: {}", e))?
+            } else {
+                HashMap::new()
+            };
+            Ok((profile_dir, mapping))
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    let scan_output = tokio::task::spawn_blocking({
+        let game_title = game_title.to_string();
+        move || -> Result<_, String> {
+            let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+            let scan_output = api
+                .back_up(parameters::BackUp {
+                    games: vec![game_title],
+                    finality: Finality::Preview,
+                    resolve_cloud_conflict: None,
+                    wine_prefix: None,
+                    include_disabled: true,
+                    skip_downgrade: false,
+                })
+                .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+            Ok(scan_output)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    let _updated_mapping = tokio::task::spawn_blocking({
+        let game_title = game_title.to_string();
+        move || -> Result<HashMap<String, String>, String> {
+            let mut new_mapping = HashMap::new();
+            if let Some(game_data) = scan_output.games.get(&game_title) {
+                if let ApiGame::Operative { files, .. } = game_data {
+                    // Copy files and build new mapping
+                    for (index, file_path_str) in files.keys().enumerate() {
+                        let file_path = Path::new(file_path_str);
+                        if file_path.exists() && file_path.is_file() {
+                            let backup_file_name = format!("file_{}", index);
+                            let dest_path = profile_dir.join(&backup_file_name);
+                            std::fs::copy(file_path, &dest_path)
+                                .map_err(|e| format!("Falha ao copiar arquivo de save para o perfil: {}", e))?;
+                            new_mapping.insert(backup_file_name, file_path_str.clone());
+                        }
+                    }
+                }
+            }
+
+            // Clean up files in profile dir that are no longer in new mapping
+            for key in mapping.keys() {
+                if !new_mapping.contains_key(key) {
+                    let old_file_path = profile_dir.join(key);
+                    if old_file_path.exists() {
+                        let _ = std::fs::remove_file(old_file_path);
+                    }
+                }
+            }
+
+            // Write mapping.json
+            let mapping_path = profile_dir.join("mapping.json");
+            let mapping_content = serde_json::to_string_pretty(&new_mapping)
+                .map_err(|e| format!("Falha ao serializar mapeamento de arquivos do perfil: {}", e))?;
+            std::fs::write(mapping_path, mapping_content)
+                .map_err(|e| format!("Falha ao gravar mapeamento de arquivos do perfil: {}", e))?;
+
+            Ok(new_mapping)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_save_profiles(
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<Vec<SaveProfile>, String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let game_profiles_dir = app_data_dir.join("save_profiles").join(&game_id);
+
+        if !game_profiles_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut list = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(game_profiles_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let manifest_path = entry.path().join("manifest.json");
+                    if manifest_path.exists() {
+                        if let Ok(content) = std::fs::read_to_string(manifest_path) {
+                            if let Ok(profile) = serde_json::from_str::<SaveProfile>(&content) {
+                                list.push(profile);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(list)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn create_save_profile(
+    app: tauri::AppHandle,
+    game_title: String,
+    game_id: String,
+    title: String,
+    description: String,
+    clone_current: bool,
+) -> Result<(), String> {
+    // Check if there are any existing profiles. If not, create a default profile first.
+    let existing_profiles = list_save_profiles(app.clone(), game_id.clone()).await?;
+
+    if existing_profiles.is_empty() {
+        let default_profile_id = uuid::Uuid::new_v4().to_string();
+        let default_created_at = chrono::Utc::now().to_rfc3339();
+        let default_profile = SaveProfile {
+            id: default_profile_id.clone(),
+            game_id: game_id.clone(),
+            title: "Principal (Original)".to_string(),
+            description: "Perfil padrão criado automaticamente com o progresso inicial do jogo.".to_string(),
+            created_at: default_created_at,
+            active: false,
+        };
+
+        tokio::task::spawn_blocking({
+            let app = app.clone();
+            let game_id = game_id.clone();
+            let default_profile_id = default_profile_id.clone();
+            let default_profile = default_profile.clone();
+            move || -> Result<(), String> {
+                let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+                let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&default_profile_id);
+                std::fs::create_dir_all(&profile_dir)
+                    .map_err(|e| format!("Falha ao criar diretório do perfil padrão: {}", e))?;
+
+                let meta_path = profile_dir.join("manifest.json");
+                let meta_content = serde_json::to_string_pretty(&default_profile)
+                    .map_err(|e| format!("Falha ao serializar manifesto do perfil padrão: {}", e))?;
+                std::fs::write(meta_path, meta_content)
+                    .map_err(|e| format!("Falha ao gravar manifesto do perfil padrão: {}", e))?;
+
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+
+        save_profile_state_internal(&app, &game_title, &game_id, &default_profile_id).await?;
+    }
+
+    // 1. If any active profile exists, save its current state first
+    let active_profile = tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        move || -> Result<Option<String>, String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let game_profiles_dir = app_data_dir.join("save_profiles").join(&game_id);
+            if !game_profiles_dir.exists() {
+                return Ok(None);
+            }
+            if let Ok(entries) = std::fs::read_dir(game_profiles_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let manifest_path = entry.path().join("manifest.json");
+                        if manifest_path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                                if let Ok(profile) = serde_json::from_str::<SaveProfile>(&content) {
+                                    if profile.active {
+                                        return Ok(Some(profile.id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(None)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    if let Some(active_id) = active_profile {
+        save_profile_state_internal(&app, &game_title, &game_id, &active_id).await?;
+    }
+
+    // 2. Create the new profile
+    let profile_id = uuid::Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().to_rfc3339();
+    let profile = SaveProfile {
+        id: profile_id.clone(),
+        game_id: game_id.clone(),
+        title,
+        description,
+        created_at,
+        active: true, // New profile starts as active
+    };
+
+    // Save profile metadata
+    tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        let profile_id = profile_id.clone();
+        let profile = profile.clone();
+        move || -> Result<(), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&profile_id);
+            std::fs::create_dir_all(&profile_dir)
+                .map_err(|e| format!("Falha ao criar diretório do perfil: {}", e))?;
+
+            let meta_path = profile_dir.join("manifest.json");
+            let meta_content = serde_json::to_string_pretty(&profile)
+                .map_err(|e| format!("Falha ao serializar manifesto do perfil: {}", e))?;
+            std::fs::write(meta_path, meta_content)
+                .map_err(|e| format!("Falha ao gravar manifesto do perfil: {}", e))?;
+
+            Ok(())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // 3. Mark all OTHER profiles as inactive
+    tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        let profile_id = profile_id.clone();
+        move || -> Result<(), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let game_profiles_dir = app_data_dir.join("save_profiles").join(&game_id);
+
+            if let Ok(entries) = std::fs::read_dir(game_profiles_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let manifest_path = entry.path().join("manifest.json");
+                        if manifest_path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                                if let Ok(mut other_profile) = serde_json::from_str::<SaveProfile>(&content) {
+                                    if other_profile.id != profile_id && other_profile.active {
+                                        other_profile.active = false;
+                                        let updated_content = serde_json::to_string_pretty(&other_profile)
+                                            .map_err(|e| format!("Falha ao serializar manifesto do perfil antigo: {}", e))?;
+                                        std::fs::write(&manifest_path, updated_content)
+                                            .map_err(|e| format!("Falha ao gravar manifesto do perfil antigo: {}", e))?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // 4. Fill/clone saves OR clear live saves
+    if clone_current {
+        // Save current live saves to this new profile
+        save_profile_state_internal(&app, &game_title, &game_id, &profile_id).await?;
+    } else {
+        // Clear live saves on disk (since we want a clean/empty campaign under the new profile)
+        tokio::task::spawn_blocking({
+            let game_title = game_title.clone();
+            move || -> Result<(), String> {
+                let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+                let scan_output = api
+                    .back_up(parameters::BackUp {
+                        games: vec![game_title.clone()],
+                        finality: Finality::Preview,
+                        resolve_cloud_conflict: None,
+                        wine_prefix: None,
+                        include_disabled: true,
+                        skip_downgrade: false,
+                    })
+                    .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+
+                if let Some(game_data) = scan_output.games.get(&game_title) {
+                    if let ApiGame::Operative { files, .. } = game_data {
+                        for file_path_str in files.keys() {
+                            let path = Path::new(file_path_str);
+                            if path.exists() && path.is_file() {
+                                std::fs::remove_file(path)
+                                    .map_err(|e| format!("Falha ao limpar arquivo de save anterior: {}", e))?;
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+
+        // Create an empty mapping.json for the new empty profile
+        tokio::task::spawn_blocking({
+            let app = app.clone();
+            let game_id = game_id.clone();
+            let profile_id = profile_id.clone();
+            move || -> Result<(), String> {
+                let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+                let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&profile_id);
+                let mapping_path = profile_dir.join("mapping.json");
+                let empty_mapping: HashMap<String, String> = HashMap::new();
+                let mapping_content = serde_json::to_string_pretty(&empty_mapping).unwrap();
+                std::fs::write(mapping_path, mapping_content)
+                    .map_err(|e| format!("Falha ao gravar mapeamento vazio do perfil: {}", e))?;
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn switch_save_profile(
+    app: tauri::AppHandle,
+    game_title: String,
+    game_id: String,
+    profile_id: String,
+) -> Result<(), String> {
+    // 1. Find the currently active profile for this game (if any) and save current state to it
+    let active_profile = tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        move || -> Result<Option<String>, String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let game_profiles_dir = app_data_dir.join("save_profiles").join(&game_id);
+            if !game_profiles_dir.exists() {
+                return Ok(None);
+            }
+            if let Ok(entries) = std::fs::read_dir(game_profiles_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let manifest_path = entry.path().join("manifest.json");
+                        if manifest_path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                                if let Ok(profile) = serde_json::from_str::<SaveProfile>(&content) {
+                                    if profile.active {
+                                        return Ok(Some(profile.id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(None)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    if let Some(active_id) = active_profile {
+        save_profile_state_internal(&app, &game_title, &game_id, &active_id).await?;
+    }
+
+    // 2. Clean the live files on disk by running a preview scan
+    tokio::task::spawn_blocking({
+        let game_title = game_title.clone();
+        move || -> Result<(), String> {
+            let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+            let scan_output = api
+                .back_up(parameters::BackUp {
+                    games: vec![game_title.clone()],
+                    finality: Finality::Preview,
+                    resolve_cloud_conflict: None,
+                    wine_prefix: None,
+                    include_disabled: true,
+                    skip_downgrade: false,
+                })
+                .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+
+            if let Some(game_data) = scan_output.games.get(&game_title) {
+                if let ApiGame::Operative { files, .. } = game_data {
+                    for file_path_str in files.keys() {
+                        let path = Path::new(file_path_str);
+                        if path.exists() && path.is_file() {
+                            std::fs::remove_file(path)
+                                .map_err(|e| format!("Não foi possível remover o arquivo de save anterior {}: {}. Verifique se o jogo está fechado.", file_path_str, e))?;
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // 3. Restore the newly selected profile files
+    let mapping_and_dir = tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        let profile_id = profile_id.clone();
+        move || -> Result<(HashMap<String, String>, PathBuf), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&profile_id);
+            let mapping_path = profile_dir.join("mapping.json");
+
+            if !mapping_path.exists() {
+                return Ok((HashMap::new(), profile_dir));
+            }
+
+            let mapping_content = std::fs::read_to_string(&mapping_path)
+                .map_err(|e| format!("Falha ao ler mapeamento do perfil: {}", e))?;
+            let mapping: HashMap<String, String> = serde_json::from_str(&mapping_content)
+                .map_err(|e| format!("Mapeamento do perfil corrompido: {}", e))?;
+            Ok((mapping, profile_dir))
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    let (mapping, profile_dir) = mapping_and_dir;
+
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        for (backup_file_name, original_path_str) in &mapping {
+            let src_path = profile_dir.join(backup_file_name);
+            let dest_path = Path::new(original_path_str);
+
+            if src_path.exists() {
+                if let Some(parent) = dest_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                std::fs::copy(&src_path, dest_path)
+                    .map_err(|e| format!("Falha ao restaurar arquivo de save do perfil: {}", e))?;
+            }
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // 4. Update manifests: selected profile becomes active, others inactive
+    tokio::task::spawn_blocking({
+        let app = app.clone();
+        let game_id = game_id.clone();
+        let profile_id = profile_id.clone();
+        move || -> Result<(), String> {
+            let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+            let game_profiles_dir = app_data_dir.join("save_profiles").join(&game_id);
+
+            if let Ok(entries) = std::fs::read_dir(game_profiles_dir) {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let manifest_path = entry.path().join("manifest.json");
+                        if manifest_path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                                if let Ok(mut profile) = serde_json::from_str::<SaveProfile>(&content) {
+                                    let was_active = profile.active;
+                                    profile.active = profile.id == profile_id;
+                                    if was_active != profile.active {
+                                        let updated_content = serde_json::to_string_pretty(&profile)
+                                            .map_err(|e| format!("Falha ao serializar manifesto do perfil: {}", e))?;
+                                        std::fs::write(&manifest_path, updated_content)
+                                            .map_err(|e| format!("Falha ao gravar manifesto do perfil: {}", e))?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_save_profile(
+    app: tauri::AppHandle,
+    game_id: String,
+    profile_id: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let profile_dir = app_data_dir.join("save_profiles").join(&game_id).join(&profile_id);
+        
+        // Safety check: is it active?
+        let manifest_path = profile_dir.join("manifest.json");
+        if manifest_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                if let Ok(profile) = serde_json::from_str::<SaveProfile>(&content) {
+                    if profile.active {
+                        return Err("Não é possível excluir o perfil de save ativo. Alterne para outro perfil primeiro.".to_string());
+                    }
+                }
+            }
+        }
+
+        if profile_dir.exists() {
+            std::fs::remove_dir_all(&profile_dir)
+                .map_err(|e| format!("Falha ao remover diretório do perfil de save: {}", e))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 
 

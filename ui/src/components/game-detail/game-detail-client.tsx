@@ -110,8 +110,17 @@ interface GameDetailClientProps {
 export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   const { t } = useI18n()
   // Tabs & safety backup check
-  const [activeTab, setActiveTab] = useState<"saves" | "presets">("saves")
+  const [activeTab, setActiveTab] = useState<"saves" | "presets" | "profiles">("saves")
   const [hasCrashSafetyBackup, setHasCrashSafetyBackup] = useState(false)
+
+  // Save Profiles states
+  const [saveProfiles, setSaveProfiles] = useState<any[]>([])
+  const [loadingProfiles, setLoadingProfiles] = useState(false)
+  const [isCreateProfileModalOpen, setIsCreateProfileModalOpen] = useState(false)
+  const [newProfileTitle, setNewProfileTitle] = useState("")
+  const [newProfileDesc, setNewProfileDesc] = useState("")
+  const [cloneCurrentSaves, setCloneCurrentSaves] = useState(true)
+  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null)
 
   // Presets states
   const [presets, setPresets] = useState<any[]>([])
@@ -448,6 +457,118 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
     }
   }
 
+  const fetchSaveProfiles = async () => {
+    if (!isTauri) {
+      // Mock save profiles for development preview
+      setSaveProfiles([
+        {
+          id: "mock-1",
+          gameId: game.id,
+          title: "Campanha Vanilla",
+          description: "Minha primeira campanha sem modificações, progresso inicial.",
+          createdAt: "2026-06-30T15:30:00Z",
+          active: true
+        },
+        {
+          id: "mock-2",
+          gameId: game.id,
+          title: "Modded Chaos Run",
+          description: "Campanha experimental com mods de jogabilidade ativados.",
+          createdAt: "2026-07-01T10:00:00Z",
+          active: false
+        }
+      ])
+      return
+    }
+    setLoadingProfiles(true)
+    try {
+      const { invoke } = await import("@tauri-apps/api/core")
+      const list = await invoke<any[]>("list_save_profiles", {
+        gameId: game.id
+      })
+      setSaveProfiles(list)
+    } catch (err) {
+      console.error("Erro ao listar perfis de save:", err)
+      toast.error("Erro ao carregar perfis de save.")
+    } finally {
+      setLoadingProfiles(false)
+    }
+  }
+
+  const handleCreateSaveProfile = async () => {
+    if (!newProfileTitle.trim()) {
+      toast.error("Por favor, informe um título para o perfil.")
+      return
+    }
+    const toastId = toast.loading("Criando novo perfil de save...")
+    try {
+      if (isTauri) {
+        const { invoke } = await import("@tauri-apps/api/core")
+        await invoke("create_save_profile", {
+          gameTitle: game.title,
+          gameId: game.id,
+          title: newProfileTitle.trim(),
+          description: newProfileDesc.trim(),
+          cloneCurrent: cloneCurrentSaves
+        })
+      }
+      toast.success("Perfil de save criado com sucesso!", { id: toastId })
+      setIsCreateProfileModalOpen(false)
+      setNewProfileTitle("")
+      setNewProfileDesc("")
+      setCloneCurrentSaves(true)
+      fetchSaveProfiles()
+      if (onRefresh) onRefresh()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Falha ao criar perfil: ${err}`, { id: toastId })
+    }
+  }
+
+  const handleSwitchSaveProfile = async (profileId: string, profileTitle: string) => {
+    setSwitchingProfileId(profileId)
+    const toastId = toast.loading(`Alternando para o perfil "${profileTitle}"... Isso pode levar alguns segundos.`)
+    try {
+      if (isTauri) {
+        const { invoke } = await import("@tauri-apps/api/core")
+        await invoke("switch_save_profile", {
+          gameTitle: game.title,
+          gameId: game.id,
+          profileId
+        })
+      }
+      toast.success(`Perfil de save alterado para "${profileTitle}"!`, { id: toastId })
+      fetchSaveProfiles()
+      if (onRefresh) onRefresh()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erro ao alternar perfil: ${err}`, { id: toastId })
+    } finally {
+      setSwitchingProfileId(null)
+    }
+  }
+
+  const handleDeleteSaveProfile = async (profileId: string, profileTitle: string) => {
+    if (!confirm(`Tem certeza de que deseja excluir o perfil "${profileTitle}"? Todos os saves deste perfil serão deletados permanentemente.`)) {
+      return
+    }
+    const toastId = toast.loading(`Excluindo perfil "${profileTitle}"...`)
+    try {
+      if (isTauri) {
+        const { invoke } = await import("@tauri-apps/api/core")
+        await invoke("delete_save_profile", {
+          gameId: game.id,
+          profileId
+        })
+      }
+      toast.success(`Perfil "${profileTitle}" excluído com sucesso!`, { id: toastId })
+      fetchSaveProfiles()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erro ao excluir perfil: ${err}`, { id: toastId })
+    }
+  }
+
   // Load safety backup status & presets
   useEffect(() => {
     const safety = localStorage.getItem(`ludocard_preset_safety_${game.id}`)
@@ -455,6 +576,8 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
     if (activeTab === "presets") {
       fetchGamePresets()
       fetchLocalPresets()
+    } else if (activeTab === "profiles") {
+      fetchSaveProfiles()
     }
   }, [game.id, activeTab])
 
@@ -1050,11 +1173,17 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               <div className="flex items-center gap-2">
                 {activeTab === "saves" ? (
                   <Clock className="size-4 text-primary" />
-                ) : (
+                ) : activeTab === "presets" ? (
                   <SlidersHorizontal className="size-4 text-primary" />
+                ) : (
+                  <FolderSync className="size-4 text-primary" />
                 )}
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/90">
-                  {activeTab === "saves" ? t("ludocard-save-history", "Histórico de Saves") : t("ludocard-config-presets", "Presets de Configuração")}
+                  {activeTab === "saves"
+                    ? t("ludocard-save-history", "Histórico de Saves")
+                    : activeTab === "presets"
+                    ? t("ludocard-config-presets", "Presets de Configuração")
+                    : t("ludocard-save-profiles-title", "Perfis de Saves (Modding)")}
                 </CardTitle>
               </div>
 
@@ -1081,6 +1210,17 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   )}
                 >
                   {t("ludocard-presets-configs", "Presets & Configurações")}
+                </button>
+                <button
+                  onClick={() => setActiveTab("profiles")}
+                  className={cn(
+                    "rounded-lg px-4 py-2 text-xs font-bold transition-all duration-150",
+                    activeTab === "profiles"
+                      ? "bg-background text-foreground shadow-sm border border-border/10"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t("ludocard-save-profiles-tab", "Perfis de Save")}
                 </button>
               </div>
             </div>
@@ -1200,7 +1340,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   ))}
                 </ol>
               )
-            ) : (
+            ) : activeTab === "presets" ? (
               /* Presets view */
               <div className="flex flex-col gap-6">
                 {/* Segmented Sub Tabs Selector */}
@@ -1485,6 +1625,135 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   </div>
                 )}
               </div>
+            ) : (
+              /* Save Profiles view */
+              <div className="flex flex-col gap-6">
+                 {/* Header / Intro and Create Profile Button */}
+                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-4">
+                   <div className="flex flex-col gap-1">
+                     <h3 className="text-sm font-semibold text-foreground">
+                       {t("ludocard-profiles-header", "Gerenciamento de Perfis de Save")}
+                     </h3>
+                     <p className="text-xs text-muted-foreground">
+                       {t("ludocard-profiles-intro", "Crie campanhas separadas ou separe gameplay com mods. O Ludocard cuidará de trocar e guardar os saves correspondentes automaticamente.")}
+                     </p>
+                   </div>
+                   <Button
+                     onClick={() => {
+                       setNewProfileTitle("")
+                       setNewProfileDesc("")
+                       setCloneCurrentSaves(true)
+                       setIsCreateProfileModalOpen(true)
+                     }}
+                     className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold text-xs py-1.5 h-auto rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+                   >
+                     <FolderSync className="size-3.5" />
+                     {t("ludocard-create-profile-btn", "Novo Perfil de Save")}
+                   </Button>
+                 </div>
+
+                 {loadingProfiles ? (
+                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+                     <RefreshCw className="size-8 animate-spin text-primary" />
+                     <span className="text-xs">{t("ludocard-loading-profiles", "Carregando perfis de save...")}</span>
+                   </div>
+                 ) : saveProfiles.length === 0 ? (
+                   <Empty>
+                     <EmptyHeader>
+                       <EmptyMedia variant="icon">
+                         <FolderSync />
+                       </EmptyMedia>
+                       <EmptyTitle>{t("ludocard-no-profiles-yet", "Nenhum Perfil de Save")}</EmptyTitle>
+                       <EmptyDescription>
+                         {t("ludocard-no-profiles-desc", "O jogo está usando os arquivos de save padrão do seu sistema. Crie o primeiro perfil para começar a organizar suas campanhas.")}
+                       </EmptyDescription>
+                     </EmptyHeader>
+                   </Empty>
+                 ) : (
+                   <div className="grid gap-4">
+                     {/* Warning / Active Profile Alert */}
+                     <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground/90 animate-in fade-in duration-200">
+                       <Info className="size-4 shrink-0 mt-0.5 text-primary" />
+                       <div className="flex flex-col gap-1 leading-relaxed">
+                         <span className="font-semibold text-primary">
+                           {t("ludocard-active-profile-banner", "Perfil Ativo no Sistema:")} {" "}
+                           {saveProfiles.find(p => p.active)?.title || t("ludocard-none", "Nenhum (Usando saves soltos)")}
+                         </span>
+                         <span>
+                           {t("ludocard-active-profile-banner-desc", "Ao alternar de perfil, os saves atuais da pasta do jogo são guardados automaticamente no perfil ativo anterior para evitar perda de dados.")}
+                         </span>
+                       </div>
+                     </div>
+
+                     <div className="flex flex-col gap-3">
+                       {saveProfiles.map((p) => (
+                         <div
+                           key={p.id}
+                           className={cn(
+                             "relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border p-4 transition-all duration-200",
+                             p.active
+                               ? "border-primary bg-primary/5 shadow-xs"
+                               : "border-border bg-muted/20 hover:bg-muted/30"
+                           )}
+                         >
+                           <div className="flex min-w-0 flex-1 flex-col gap-1">
+                             <div className="flex items-center gap-2 flex-wrap">
+                               <span className="font-bold text-sm text-foreground truncate">{p.title}</span>
+                               {p.active ? (
+                                 <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[9px] font-bold text-emerald-500 select-none">
+                                   {t("ludocard-profile-active-tag", "Ativo no Sistema")}
+                                 </span>
+                               ) : (
+                                 <span className="inline-flex items-center rounded-full bg-muted border border-border px-2 py-0.5 text-[9px] font-medium text-muted-foreground select-none">
+                                   {t("ludocard-profile-inactive-tag", "Inativo")}
+                                 </span>
+                               )}
+                             </div>
+                             {p.description && (
+                               <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                                 {p.description}
+                               </p>
+                             )}
+                             <span className="text-[10px] text-muted-foreground/80 mt-1">
+                               {t("ludocard-created-at", "Criado em")}: {new Date(p.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                             </span>
+                           </div>
+
+                           <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+                             {!p.active && (
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 disabled={switchingProfileId !== null}
+                                 onClick={() => handleSwitchSaveProfile(p.id, p.title)}
+                                 className="border-primary/30 text-primary hover:bg-primary/5 cursor-pointer font-semibold animate-in fade-in duration-200"
+                               >
+                                 {switchingProfileId === p.id ? (
+                                   <RefreshCw className="size-3.5 animate-spin" />
+                                 ) : (
+                                   <FolderSync className="size-3.5" />
+                                 )}
+                                 {t("ludocard-activate-profile-btn", "Ativar Perfil")}
+                               </Button>
+                             )}
+                             <Button
+                               size="icon-sm"
+                               variant="ghost"
+                               disabled={p.active || switchingProfileId !== null}
+                               onClick={() => handleDeleteSaveProfile(p.id, p.title)}
+                               title={p.active ? t("ludocard-cant-delete-active", "Não é possível deletar o perfil ativo") : t("ludocard-delete-profile", "Excluir perfil")}
+                               className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 cursor-pointer disabled:opacity-30"
+                             >
+                               <Trash2 className="size-4" />
+                               <span className="sr-only">Excluir</span>
+                             </Button>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
             )}
           </CardContent>
         </Card>
@@ -1941,6 +2210,117 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   className="bg-primary hover:bg-primary/95 text-primary-foreground font-medium"
                 >
                   Criar Preset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Create Save Profile Modal */}
+      {isCreateProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <Card className="w-full max-w-md shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
+              <div>
+                <CardTitle className="text-base flex items-center gap-1.5">
+                  <FolderSync className="size-4.5 text-primary" />
+                  {t("ludocard-create-profile-title", "Criar Perfil de Save")}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {t("ludocard-create-profile-desc", "Inicie uma campanha paralela ou isole saves com mods.")}
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCreateProfileModalOpen(false)}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="save-profile-title" className="text-xs font-semibold text-muted-foreground">
+                  {t("ludocard-profile-name-label", "Nome do Perfil *")}
+                </label>
+                <input
+                  id="save-profile-title"
+                  type="text"
+                  placeholder={t("ludocard-profile-name-placeholder", "Ex: Minha Campanha Vanilla ou Modded Run")}
+                  value={newProfileTitle}
+                  onChange={(e) => setNewProfileTitle(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="save-profile-desc" className="text-xs font-semibold text-muted-foreground">
+                  {t("ludocard-profile-desc-label", "Descrição")}
+                </label>
+                <textarea
+                  id="save-profile-desc"
+                  rows={2.5}
+                  placeholder={t("ludocard-profile-desc-placeholder", "Descreva o propósito deste perfil (ex: jogando com a classe guerreiro).")}
+                  value={newProfileDesc}
+                  onChange={(e) => setNewProfileDesc(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3 text-xs">
+                <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                  {t("ludocard-creation-options", "Opções de Inicialização:")}
+                </span>
+
+                <div className="flex flex-col gap-2.5">
+                  <label className="flex items-start gap-2 cursor-pointer font-medium text-foreground">
+                    <input
+                      type="radio"
+                      name="clone-option"
+                      checked={cloneCurrentSaves}
+                      onChange={() => setCloneCurrentSaves(true)}
+                      className="mt-0.5 text-primary focus:ring-primary"
+                    />
+                    <div className="flex flex-col gap-0.5">
+                      <span>{t("ludocard-clone-current-saves", "Clonar progresso atual")}</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        {t("ludocard-clone-current-saves-desc", "Copia os saves que atualmente estão na pasta do jogo para este perfil (recomendado).")}
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2 cursor-pointer font-medium text-foreground">
+                    <input
+                      type="radio"
+                      name="clone-option"
+                      checked={!cloneCurrentSaves}
+                      onChange={() => setCloneCurrentSaves(false)}
+                      className="mt-0.5 text-primary focus:ring-primary"
+                    />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-amber-500">{t("ludocard-start-empty", "Começar do zero (Vazio)")}</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        {t("ludocard-start-empty-desc", "A pasta de saves atual do jogo será limpa para você iniciar um progresso 100% novo.")}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border pt-4 mt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsCreateProfileModalOpen(false)}
+                >
+                  {t("ludocard-cancel", "Cancelar")}
+                </Button>
+                <Button
+                  disabled={!newProfileTitle}
+                  onClick={handleCreateSaveProfile}
+                  className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
+                >
+                  {t("ludocard-create-profile-btn", "Criar Perfil")}
                 </Button>
               </div>
             </CardContent>

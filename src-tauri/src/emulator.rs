@@ -1,8 +1,8 @@
+use ludusavi::api::Ludusavi;
+use ludusavi::resource::SaveableResourceFile;
+use ludusavi::resource::config::CustomGame;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use ludusavi::api::Ludusavi;
-use ludusavi::resource::config::CustomGame;
-use ludusavi::resource::SaveableResourceFile;
 
 /// Metadata for a detected emulator save
 #[derive(Clone, Debug)]
@@ -19,7 +19,9 @@ fn appdata_dir() -> Option<PathBuf> {
 
 /// Helper to get Documents directory on Windows
 fn document_dir() -> Option<PathBuf> {
-    std::env::var("USERPROFILE").ok().map(|p| PathBuf::from(p).join("Documents"))
+    std::env::var("USERPROFILE")
+        .ok()
+        .map(|p| PathBuf::from(p).join("Documents"))
 }
 
 /// Helper to read custom MLC path from Cemu settings.xml
@@ -241,11 +243,7 @@ fn is_wii_hex_id(s: &str) -> bool {
 
 /// Identify the emulator type from a directory path by checking for executable files
 pub fn identify_emulator(dir: &Path) -> Option<String> {
-    let check_dir = if dir.is_file() {
-        dir.parent()?
-    } else {
-        dir
-    };
+    let check_dir = if dir.is_file() { dir.parent()? } else { dir };
 
     if let Ok(entries) = std::fs::read_dir(check_dir) {
         for entry in entries.flatten() {
@@ -297,11 +295,21 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
             }
 
             let save_root = save_root.unwrap_or_else(|| {
-                let portable = emulator_dir.join("user").join("nand").join("user").join("save").join("0000000000000000");
+                let portable = emulator_dir
+                    .join("user")
+                    .join("nand")
+                    .join("user")
+                    .join("save")
+                    .join("0000000000000000");
                 if portable.exists() {
                     portable
                 } else if let Some(appdata) = appdata_dir() {
-                    appdata.join("yuzu").join("nand").join("user").join("save").join("0000000000000000")
+                    appdata
+                        .join("yuzu")
+                        .join("nand")
+                        .join("user")
+                        .join("save")
+                        .join("0000000000000000")
                 } else {
                     portable
                 }
@@ -317,7 +325,12 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                                 for title in titles.flatten() {
                                     let name_str = title.file_name().to_string_lossy().to_string();
                                     if title.path().is_dir() && is_title_id(&name_str) {
-                                        let wildcard_path = save_root.join("*").join(&name_str).to_string_lossy().to_string().replace('\\', "/");
+                                        let wildcard_path = save_root
+                                            .join("*")
+                                            .join(&name_str)
+                                            .to_string_lossy()
+                                            .to_string()
+                                            .replace('\\', "/");
                                         let game_title = get_switch_game_name(&name_str)
                                             .map(|s| s.to_string())
                                             .or_else(|| online_lookup_switch(&name_str))
@@ -354,7 +367,12 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                                 for title in titles.flatten() {
                                     let name_str = title.file_name().to_string_lossy().to_string();
                                     if title.path().is_dir() && is_title_id(&name_str) {
-                                        let wildcard_path = save_root.join("*").join(&name_str).to_string_lossy().to_string().replace('\\', "/");
+                                        let wildcard_path = save_root
+                                            .join("*")
+                                            .join(&name_str)
+                                            .to_string_lossy()
+                                            .to_string()
+                                            .replace('\\', "/");
                                         let game_title = get_switch_game_name(&name_str)
                                             .map(|s| s.to_string())
                                             .or_else(|| online_lookup_switch(&name_str))
@@ -607,10 +625,16 @@ pub fn register_emulator_saves(detected: Vec<DetectedSave>) -> Result<(), String
     let mut api = Ludusavi::load().map_err(|e| format!("{:?}", e))?;
 
     // Prune obsolete or unmapped emulator games for the scanned emulators
-    let emulators_in_scan: std::collections::HashSet<String> = detected.iter().map(|s| s.emulator_name.clone()).collect();
-    let detected_names: std::collections::HashSet<String> = detected.iter().map(|s| format!("[{}] {}", s.emulator_name, s.game_title)).collect();
+    let emulators_in_scan: std::collections::HashSet<String> =
+        detected.iter().map(|s| s.emulator_name.clone()).collect();
+    let detected_names: std::collections::HashSet<String> = detected
+        .iter()
+        .map(|s| format!("[{}] {}", s.emulator_name, s.game_title))
+        .collect();
     api.config.custom_games.retain(|g| {
-        let is_scanned_emulator = emulators_in_scan.iter().any(|emu| g.name.starts_with(&format!("[{}] ", emu)));
+        let is_scanned_emulator = emulators_in_scan
+            .iter()
+            .any(|emu| g.name.starts_with(&format!("[{}] ", emu)));
         if is_scanned_emulator {
             detected_names.contains(&g.name)
         } else {

@@ -1,3 +1,5 @@
 cargo clean
 
 pnpm tauri dev
+
+pnpm tauri build --no-bundle

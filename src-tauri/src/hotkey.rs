@@ -4,11 +4,11 @@
 //! When pressed, it detects the active foreground window, finds the corresponding game,
 //! and runs a silent backup.
 
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, LazyLock};
-use std::sync::mpsc::{Sender, Receiver, channel};
-use tauri::Manager;
 use ludusavi::api::Ludusavi;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{LazyLock, Mutex};
+use tauri::Manager;
 
 #[derive(Debug)]
 pub enum HotkeyControl {
@@ -17,21 +17,18 @@ pub enum HotkeyControl {
     Quit,
 }
 
-static HOTKEY_SENDER: LazyLock<Mutex<Option<Sender<HotkeyControl>>>> =
-    LazyLock::new(|| Mutex::new(None));
+static HOTKEY_SENDER: LazyLock<Mutex<Option<Sender<HotkeyControl>>>> = LazyLock::new(|| Mutex::new(None));
 
-static HOTKEY_THREAD_ID: LazyLock<Mutex<Option<u32>>> =
-    LazyLock::new(|| Mutex::new(None));
+static HOTKEY_THREAD_ID: LazyLock<Mutex<Option<u32>>> = LazyLock::new(|| Mutex::new(None));
 
 /// Loads quick-save settings from ludocard.json.
 pub fn load_quick_save_settings(app_data_dir: &Path) -> (bool, String) {
     let config_path = app_data_dir.join("ludocard.json");
     if let Ok(content) = std::fs::read_to_string(&config_path) {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            let enabled = json.get("quick_save_enabled")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-            let shortcut = json.get("quick_save_shortcut")
+            let enabled = json.get("quick_save_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+            let shortcut = json
+                .get("quick_save_shortcut")
                 .and_then(|v| v.as_str())
                 .unwrap_or("Ctrl+Shift+S")
                 .to_string();
@@ -64,9 +61,9 @@ pub fn parse_shortcut(shortcut: &str) -> Option<(u32, u32)> {
     for part in parts {
         let part_trimmed = part.trim().to_lowercase();
         match part_trimmed.as_str() {
-            "ctrl" | "control" => modifiers |= 0x0002, // MOD_CONTROL
-            "shift" => modifiers |= 0x0004,           // MOD_SHIFT
-            "alt" => modifiers |= 0x0001,             // MOD_ALT
+            "ctrl" | "control" => modifiers |= 0x0002,                 // MOD_CONTROL
+            "shift" => modifiers |= 0x0004,                            // MOD_SHIFT
+            "alt" => modifiers |= 0x0001,                              // MOD_ALT
             "win" | "meta" | "cmd" | "command" => modifiers |= 0x0008, // MOD_WIN
             other => {
                 if other.len() == 1 {
@@ -96,11 +93,7 @@ pub fn parse_shortcut(shortcut: &str) -> Option<(u32, u32)> {
         }
     }
 
-    if vk == 0 {
-        None
-    } else {
-        Some((modifiers, vk))
-    }
+    if vk == 0 { None } else { Some((modifiers, vk)) }
 }
 
 #[cfg(target_os = "windows")]
@@ -127,8 +120,8 @@ pub fn send_hotkey_command(control: HotkeyControl) {
 
 #[cfg(target_os = "windows")]
 fn get_foreground_process_path() -> Option<PathBuf> {
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
     use sysinfo::System;
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -154,14 +147,10 @@ fn get_foreground_process_path() -> Option<PathBuf> {
 #[cfg(target_os = "windows")]
 pub fn play_notification_sound() {
     use std::os::windows::ffi::OsStrExt;
-    
+
     #[link(name = "winmm")]
     unsafe extern "system" {
-        fn PlaySoundW(
-            pszSound: *const u16,
-            hmod: *mut std::ffi::c_void,
-            fdwSound: u32,
-        ) -> i32;
+        fn PlaySoundW(pszSound: *const u16, hmod: *mut std::ffi::c_void, fdwSound: u32) -> i32;
     }
 
     let sound_name: Vec<u16> = std::ffi::OsStr::new("SystemNotification")
@@ -174,19 +163,15 @@ pub fn play_notification_sound() {
         PlaySoundW(
             sound_name.as_ptr(),
             std::ptr::null_mut(),
-            0x00010000 | 0x00000001 | 0x00000002
+            0x00010000 | 0x00000001 | 0x00000002,
         );
     }
 }
 
 #[cfg(target_os = "windows")]
 fn run_hotkey_loop(rx: Receiver<HotkeyControl>, app_handle: tauri::AppHandle) {
-    use windows::Win32::UI::Input::KeyboardAndMouse::{
-        RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS
-    };
-    use windows::Win32::UI::WindowsAndMessaging::{
-        MSG, GetMessageW, WM_HOTKEY
-    };
+    use windows::Win32::UI::Input::KeyboardAndMouse::{HOT_KEY_MODIFIERS, RegisterHotKey, UnregisterHotKey};
+    use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
 
     let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
     *HOTKEY_THREAD_ID.lock().unwrap() = Some(thread_id);
@@ -200,36 +185,42 @@ fn run_hotkey_loop(rx: Receiver<HotkeyControl>, app_handle: tauri::AppHandle) {
             match msg {
                 HotkeyControl::Register { modifiers, vk } => {
                     if current_registered {
-                        unsafe { let _ = UnregisterHotKey(None, hotkey_id); }
+                        unsafe {
+                            let _ = UnregisterHotKey(None, hotkey_id);
+                        }
                         current_registered = false;
                     }
                     unsafe {
-                        let ok = RegisterHotKey(
-                            None,
-                            hotkey_id,
-                            HOT_KEY_MODIFIERS(modifiers),
-                            vk
-                        );
+                        let ok = RegisterHotKey(None, hotkey_id, HOT_KEY_MODIFIERS(modifiers), vk);
                         if ok.is_ok() {
                             current_registered = true;
                             log::info!("[Hotkey] Registered hotkey modifiers: {}, vk: {}", modifiers, vk);
                         } else {
                             if let Err(e) = ok {
-                                log::error!("[Hotkey] Failed to register hotkey with modifiers: {}, vk: {}. Error: {:?}", modifiers, vk, e);
+                                log::error!(
+                                    "[Hotkey] Failed to register hotkey with modifiers: {}, vk: {}. Error: {:?}",
+                                    modifiers,
+                                    vk,
+                                    e
+                                );
                             }
                         }
                     }
                 }
                 HotkeyControl::Unregister => {
                     if current_registered {
-                        unsafe { let _ = UnregisterHotKey(None, hotkey_id); }
+                        unsafe {
+                            let _ = UnregisterHotKey(None, hotkey_id);
+                        }
                         current_registered = false;
                         log::info!("[Hotkey] Unregistered hotkey");
                     }
                 }
                 HotkeyControl::Quit => {
                     if current_registered {
-                        unsafe { let _ = UnregisterHotKey(None, hotkey_id); }
+                        unsafe {
+                            let _ = UnregisterHotKey(None, hotkey_id);
+                        }
                     }
                     return;
                 }
@@ -251,10 +242,12 @@ fn run_hotkey_loop(rx: Receiver<HotkeyControl>, app_handle: tauri::AppHandle) {
 
 fn matches_game(game_title: &str, install_dir: Option<&str>, exe_path: &Path) -> bool {
     let exe_str = exe_path.to_string_lossy().to_lowercase();
-    let exe_name = exe_path.file_name()
+    let exe_name = exe_path
+        .file_name()
         .map(|n| n.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    let exe_name_without_ext = exe_path.file_stem()
+    let exe_name_without_ext = exe_path
+        .file_stem()
         .map(|n| n.to_string_lossy().to_lowercase())
         .unwrap_or_default();
 
@@ -303,7 +296,7 @@ fn find_game_for_exe(exe_path: &Path, app: &tauri::AppHandle) -> Option<String> 
     }
 
     let api = Ludusavi::load().ok()?;
-    
+
     // Check scan cache
     for (game_title, info) in &scan_cache {
         if matches_game(game_title, info.install_dir.as_deref(), exe_path) {
@@ -349,7 +342,7 @@ pub fn trigger_quick_save(app: &tauri::AppHandle) {
                 log::warn!("[Hotkey] Could not determine foreground process path.");
                 crate::watcher::show_notification(
                     "Ludocard - Quick-Save",
-                    "Não foi possível detectar o jogo em primeiro plano."
+                    "Não foi possível detectar o jogo em primeiro plano.",
                 );
                 return;
             }
@@ -359,13 +352,13 @@ pub fn trigger_quick_save(app: &tauri::AppHandle) {
 
         if let Some(game_title) = find_game_for_exe(&exe_path, app) {
             log::info!("[Hotkey] Matched foreground process to game: {}", game_title);
-            
+
             match backup_game_silent(&game_title) {
                 Ok(()) => {
                     log::info!("[Hotkey] Quick-save successful for game: {}", game_title);
                     crate::watcher::show_notification(
                         "Ludocard - Quick-Save Manual",
-                        &format!("Backup do jogo \"{}\" salvo com sucesso! ✅", game_title)
+                        &format!("Backup do jogo \"{}\" salvo com sucesso! ✅", game_title),
                     );
                     play_notification_sound();
                 }
@@ -373,19 +366,26 @@ pub fn trigger_quick_save(app: &tauri::AppHandle) {
                     log::error!("[Hotkey] Quick-save failed for game: {}. Error: {}", game_title, e);
                     crate::watcher::show_notification(
                         "Ludocard - Falha no Quick-Save",
-                        &format!("Erro ao fazer backup de \"{}\": {}", game_title, e)
+                        &format!("Erro ao fazer backup de \"{}\": {}", game_title, e),
                     );
                 }
             }
         } else {
-            let file_name = exe_path.file_name()
+            let file_name = exe_path
+                .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "Desconhecido".to_string());
-                
-            log::warn!("[Hotkey] Executable '{:?}' did not match any registered game.", exe_path);
+
+            log::warn!(
+                "[Hotkey] Executable '{:?}' did not match any registered game.",
+                exe_path
+            );
             crate::watcher::show_notification(
                 "Ludocard - Quick-Save",
-                &format!("O executável em primeiro plano ({}) não corresponde a nenhum jogo cadastrado.", file_name)
+                &format!(
+                    "O executável em primeiro plano ({}) não corresponde a nenhum jogo cadastrado.",
+                    file_name
+                ),
             );
         }
     }
@@ -395,7 +395,7 @@ pub fn trigger_quick_save(app: &tauri::AppHandle) {
 pub fn init_hotkey(app: &tauri::AppHandle) {
     let (tx, rx) = channel();
     *HOTKEY_SENDER.lock().unwrap() = Some(tx);
-    
+
     let app_handle = app.clone();
     std::thread::spawn(move || {
         run_hotkey_loop(rx, app_handle);

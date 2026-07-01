@@ -6,7 +6,7 @@
 //! 3. A background thread periodically checks if the game process has exited.
 //! 4. Once the game exits, it performs a silent backup and shows a Windows notification.
 
-use notify::{RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -46,9 +46,7 @@ pub fn load_file_watcher_setting(app_data_dir: &Path) -> bool {
     let config_path = app_data_dir.join("ludocard.json");
     if let Ok(content) = std::fs::read_to_string(&config_path) {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            return json.get("file_watcher")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
+            return json.get("file_watcher").and_then(|v| v.as_bool()).unwrap_or(false);
         }
     }
     false
@@ -196,7 +194,10 @@ pub fn start_file_watcher(app: &tauri::AppHandle) {
         return;
     }
 
-    log::info!("[FileWatcher] Setting up watchers for {} game save directories.", path_to_game.len());
+    log::info!(
+        "[FileWatcher] Setting up watchers for {} game save directories.",
+        path_to_game.len()
+    );
 
     let dirty_games = Arc::new(Mutex::new(HashSet::<String>::new()));
     let dirty_games_for_watcher = dirty_games.clone();
@@ -283,12 +284,18 @@ pub fn start_file_watcher(app: &tauri::AppHandle) {
 
             for game_title in &dirty_snapshot {
                 if is_game_likely_running(game_title) {
-                    log::info!("[FileWatcher] '{}' has pending changes but game is still running.", game_title);
+                    log::info!(
+                        "[FileWatcher] '{}' has pending changes but game is still running.",
+                        game_title
+                    );
                     continue;
                 }
 
                 // Game has exited and has pending changes — perform backup
-                log::info!("[FileWatcher] '{}' - game exited with pending changes. Starting silent backup...", game_title);
+                log::info!(
+                    "[FileWatcher] '{}' - game exited with pending changes. Starting silent backup...",
+                    game_title
+                );
 
                 match backup_game_silent(game_title) {
                     Ok(()) => {
@@ -299,10 +306,13 @@ pub fn start_file_watcher(app: &tauri::AppHandle) {
                         );
 
                         // Notify frontend
-                        let _ = app_handle.emit("file-watcher-backup", serde_json::json!({
-                            "game": game_title,
-                            "success": true,
-                        }));
+                        let _ = app_handle.emit(
+                            "file-watcher-backup",
+                            serde_json::json!({
+                                "game": game_title,
+                                "success": true,
+                            }),
+                        );
                     }
                     Err(e) => {
                         log::error!("[FileWatcher] '{}' - backup failed: {}", game_title, e);
@@ -311,11 +321,14 @@ pub fn start_file_watcher(app: &tauri::AppHandle) {
                             &format!("Erro ao salvar \"{}\": {}", game_title, e),
                         );
 
-                        let _ = app_handle.emit("file-watcher-backup", serde_json::json!({
-                            "game": game_title,
-                            "success": false,
-                            "error": e,
-                        }));
+                        let _ = app_handle.emit(
+                            "file-watcher-backup",
+                            serde_json::json!({
+                                "game": game_title,
+                                "success": false,
+                                "error": e,
+                            }),
+                        );
                     }
                 }
 

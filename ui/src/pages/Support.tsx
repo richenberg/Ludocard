@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useI18n } from "@/lib/i18n"
 
-const ITCH_URL = "https://itch.io" // Link de doação do Itch.io
-const STRIPE_URL = "https://stripe.com" // Link de pagamento do Stripe (suporta Pix e Cartões)
+const ITCH_URL = "https://richenbergdev.itch.io/ludocard" // Link de doação do Itch.io
+const STRIPE_URL = "https://buy.stripe.com/test_fZu7sN5HaaAF2ST8CIgjC00" // Link de pagamento do Stripe (suporta Pix e Cartões)
 
 export default function Support() {
   const { t } = useI18n()

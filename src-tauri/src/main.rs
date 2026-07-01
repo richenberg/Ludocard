@@ -4,9 +4,9 @@
 use tauri::Manager;
 
 mod commands;
-pub mod watcher;
 pub mod emulator;
 pub mod hotkey;
+pub mod watcher;
 
 fn main() {
     tauri::Builder::default()
@@ -26,37 +26,34 @@ fn main() {
             // 1. Create Tray Menu Items
             let quit_i = tauri::menu::MenuItemBuilder::with_id("quit", "Sair do Ludocard").build(app)?;
             let show_i = tauri::menu::MenuItemBuilder::with_id("show", "Exibir Janela").build(app)?;
-            
+
             // 2. Build the Menu
-            let menu = tauri::menu::MenuBuilder::new(app)
-                .items(&[&show_i, &quit_i])
-                .build()?;
+            let menu = tauri::menu::MenuBuilder::new(app).items(&[&show_i, &quit_i]).build()?;
 
             // 3. Build the Tray Icon
             let _tray = tauri::tray::TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false) // Right-click will show the menu
-                .on_menu_event(|app, event| {
-                    match event.id().as_ref() {
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                        _ => {}
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "quit" => {
+                        app.exit(0);
                     }
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click {
                         button: tauri::tray::MouseButton::Left,
                         button_state: tauri::tray::MouseButtonState::Up,
                         ..
-                    } = event {
+                    } = event
+                    {
                         let app = tray.app_handle();
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
@@ -79,7 +76,9 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
-                let system_tray_enabled = app.path().app_data_dir()
+                let system_tray_enabled = app
+                    .path()
+                    .app_data_dir()
                     .map(|dir| crate::commands::load_system_tray_setting(&dir))
                     .unwrap_or(true);
 
@@ -110,11 +109,12 @@ fn main() {
                         if first_time {
                             json["first_minimize_notified"] = serde_json::json!(true);
                             let _ = std::fs::create_dir_all(&dir);
-                            let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default());
+                            let _ =
+                                std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default());
 
                             watcher::show_notification(
                                 "Ludocard em segundo plano",
-                                "O aplicativo foi minimizado para a bandeja do sistema."
+                                "O aplicativo foi minimizado para a bandeja do sistema.",
                             );
                         }
                     }
@@ -180,4 +180,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running Ludocard");
 }
-

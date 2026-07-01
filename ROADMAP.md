@@ -95,7 +95,7 @@ Dessa forma, o seu aplicativo fica 100% seguro, leve, e nenhuma senha master sua
 
 
 ### Bloco E: Ferramentas e UX do Jogador
-- [ ] **Atalho Global de Emergência (Quick-Save Manual)**: Atalho customizável (ex: `Ctrl` + `Shift` + `S`) que faz backup instantâneo do jogo em primeiro plano sem precisar de Alt+Tab (um "Save State" nativo para PC) colocar um toggle nas configuraç~eos para ativar desativar isso e para mudar a tecla de atalho.
+- [x] **Atalho Global de Emergência (Quick-Save Manual)**: Atalho customizável (ex: `Ctrl` + `Shift` + `S`) que faz backup instantâneo do jogo em primeiro plano sem precisar de Alt+Tab (um "Save State" nativo para PC) colocar um toggle nas configuraç~eos para ativar desativar isso e para mudar a tecla de atalho. e quando o save funcionar mostrar uma notificação no windows que o jogo foi salvo com um som bem sutil de notificação, tipo da steam.
 - [x] **Notas de Campanha (O "Diário de Bordo")**: Um campo de texto simples dentro do card de cada jogo para anotações rápidas sobre o progresso (ex: *"Parei logo após derrotar o Boss X. Próximo passo: build de mago e explorar área oeste"*).
 
 ### Bloco F: Localização e Idiomas

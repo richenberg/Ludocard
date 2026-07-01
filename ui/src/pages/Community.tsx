@@ -456,16 +456,8 @@ export default function Community() {
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-bold">{t("ludocard-repo-disconnected", "Repositório Comunitário Desconectado")}</h2>
             <p className="text-sm text-muted-foreground">
-              {t("ludocard-repo-disconnected-desc", "Para carregar os checkpoints comunitários e compartilhar os seus, você precisa configurar a URL do seu Supabase e a Anon Key pública na aba de Configurações.")}
+              {t("ludocard-repo-disconnected-desc", "Não foi possível conectar ao repositório comunitário. Verifique sua conexão com a internet.")}
             </p>
-          </div>
-          <div className="flex flex-col gap-3 w-full border-t border-border pt-4 text-xs text-left text-muted-foreground gap-2">
-            <span className="font-semibold text-foreground">{t("ludocard-how-to-config", "Como configurar:")}</span>
-            <ol className="list-decimal pl-4 flex flex-col gap-1">
-              <li>{t("ludocard-config-step-1", "Crie um projeto gratuito no Supabase.")}</li>
-              <li>{t("ludocard-config-step-2", "Crie as tabelas executando o script SQL que geramos no arquivo supabase/schema.sql.")}</li>
-              <li>{t("ludocard-config-step-3", "Insira a URL da API e a Anon Key pública nas Configurações do Ludocard.")}</li>
-            </ol>
           </div>
         </div>
       ) : (

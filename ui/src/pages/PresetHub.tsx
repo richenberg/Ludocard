@@ -588,7 +588,7 @@ export default function PresetHub() {
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-bold">{t("ludocard-presethub-disconnected", "Repositório de Presets Desconectado")}</h2>
             <p className="text-sm text-muted-foreground">
-              {t("ludocard-presethub-disconnected-desc", "Para carregar os presets comunitários e compartilhar os seus, você precisa configurar a URL do seu Supabase e a Anon Key pública na aba de Configurações.")}
+              {t("ludocard-presethub-disconnected-desc", "Não foi possível conectar ao servidor de presets comunitários. Verifique sua conexão com a internet.")}
             </p>
           </div>
         </div>

@@ -15,6 +15,7 @@ import {
   Eye,
   Database,
   Key,
+  Zap,
 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -35,6 +36,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { games } from "@/lib/mock-data"
 import { useLibrary } from "@/lib/library-context"
 import { PlatformBadge } from "@/components/platform-badge"
+import { cn } from "@/lib/utils"
+import { useTheme, type Theme } from "@/lib/theme-context"
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
@@ -65,7 +68,9 @@ function SettingRow({
 
 export function SettingsClient() {
   const { t, language, setLanguage } = useI18n()
+  const { theme, setTheme } = useTheme()
   const [scheduleMode, setScheduleMode] = useState<"interval" | "days">("interval")
+  const [allGamesScheduled, setAllGamesScheduled] = useState(false)
   const [scheduledGames, setScheduledGames] = useState<Record<string, boolean>>(
     Object.fromEntries(games.filter((g) => g.autoBackup).map((g) => [g.id, true])),
   )
@@ -93,6 +98,9 @@ export function SettingsClient() {
   const [portable, setPortable] = useState(false)
   const [supabaseUrl, setSupabaseUrl] = useState("")
   const [supabaseAnonKey, setSupabaseAnonKey] = useState("")
+  const [quickSaveEnabled, setQuickSaveEnabled] = useState(true)
+  const [quickSaveShortcut, setQuickSaveShortcut] = useState("Ctrl+Shift+S")
+  const [hasCloudRemote, setHasCloudRemote] = useState(false)
 
   const { loadGames } = useLibrary()
 
@@ -116,6 +124,9 @@ export function SettingsClient() {
         supabaseAnonKey: string;
         language: string;
         hasSetLanguage: boolean;
+        quickSaveEnabled: boolean;
+        quickSaveShortcut: string;
+        hasCloudRemote: boolean;
       }>("get_settings");
       setBackupPath(s.backupPath);
       setRclonePath(s.rclonePath);
@@ -128,6 +139,9 @@ export function SettingsClient() {
       setPortable(s.portable);
       setSupabaseUrl(s.supabaseUrl || "");
       setSupabaseAnonKey(s.supabaseAnonKey || "");
+      setQuickSaveEnabled(s.quickSaveEnabled);
+      setQuickSaveShortcut(s.quickSaveShortcut || "Ctrl+Shift+S");
+      setHasCloudRemote(s.hasCloudRemote);
     } catch (err) {
       console.error("Failed to load settings from Tauri:", err);
     }
@@ -137,15 +151,25 @@ export function SettingsClient() {
     loadSettings();
   }, []);
 
-  const handleSaveSettings = async (override?: { fileWatcher?: boolean; systemTray?: boolean; startWithWindows?: boolean }) => {
+  const handleSaveSettings = async (override?: { 
+    fileWatcher?: boolean; 
+    systemTray?: boolean; 
+    startWithWindows?: boolean;
+    quickSaveEnabled?: boolean;
+    quickSaveShortcut?: string;
+  }) => {
     const nextFileWatcher = override && override.fileWatcher !== undefined ? override.fileWatcher : fileWatcher;
     const nextSystemTray = override && override.systemTray !== undefined ? override.systemTray : systemTray;
     const nextStartWithWindows = override && override.startWithWindows !== undefined ? override.startWithWindows : startWithWindows;
+    const nextQuickSaveEnabled = override && override.quickSaveEnabled !== undefined ? override.quickSaveEnabled : quickSaveEnabled;
+    const nextQuickSaveShortcut = override && override.quickSaveShortcut !== undefined ? override.quickSaveShortcut : quickSaveShortcut;
 
     if (override) {
       if (override.fileWatcher !== undefined) setFileWatcher(override.fileWatcher);
       if (override.systemTray !== undefined) setSystemTray(override.systemTray);
       if (override.startWithWindows !== undefined) setStartWithWindows(override.startWithWindows);
+      if (override.quickSaveEnabled !== undefined) setQuickSaveEnabled(override.quickSaveEnabled);
+      if (override.quickSaveShortcut !== undefined) setQuickSaveShortcut(override.quickSaveShortcut);
     }
 
     if (isTauri) {
@@ -167,6 +191,9 @@ export function SettingsClient() {
             supabaseAnonKey,
             language,
             hasSetLanguage: true,
+            quickSaveEnabled: nextQuickSaveEnabled,
+            quickSaveShortcut: nextQuickSaveShortcut,
+            hasCloudRemote,
           }
         });
         if (id) {
@@ -187,6 +214,9 @@ export function SettingsClient() {
           supabaseAnonKey: string;
           language: string;
           hasSetLanguage: boolean;
+          quickSaveEnabled: boolean;
+          quickSaveShortcut: string;
+          hasCloudRemote: boolean;
         }>("get_settings");
         setBackupPath(s.backupPath);
         setRclonePath(s.rclonePath);
@@ -199,6 +229,9 @@ export function SettingsClient() {
         setPortable(s.portable);
         setSupabaseUrl(s.supabaseUrl || "");
         setSupabaseAnonKey(s.supabaseAnonKey || "");
+        setQuickSaveEnabled(s.quickSaveEnabled);
+        setQuickSaveShortcut(s.quickSaveShortcut || "Ctrl+Shift+S");
+        setHasCloudRemote(s.hasCloudRemote);
       } catch (err) {
         if (id) {
           toast.error(`Erro ao salvar: ${err}`, { id });
@@ -313,11 +346,74 @@ export function SettingsClient() {
             />
             <Separator />
             <SettingRow
+              icon={Zap}
+              title={t("ludocard-quicksave", "Atalho de Emergência (Quick-Save Manual)")}
+              description={t("ludocard-quicksave-desc", "Atalho global (Save State para PC) para fazer backup do jogo ativo em primeiro plano.")}
+              control={
+                <div className="flex items-center gap-3">
+                  <Input
+                    value={quickSaveShortcut}
+                    onKeyDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+
+                      const keys: string[] = [];
+                      if (e.ctrlKey) keys.push("Ctrl");
+                      if (e.shiftKey) keys.push("Shift");
+                      if (e.altKey) keys.push("Alt");
+                      if (e.metaKey) keys.push("Win");
+
+                      const key = e.key;
+                      const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
+
+                      if (!isModifier) {
+                        if (key.length === 1) {
+                          keys.push(key.toUpperCase());
+                        } else {
+                          const friendlyKeys: Record<string, string> = {
+                            " ": "Space",
+                            "ArrowUp": "Up",
+                            "ArrowDown": "Down",
+                            "ArrowLeft": "Left",
+                            "ArrowRight": "Right",
+                            "Escape": "Esc",
+                            "Enter": "Enter",
+                            "Backspace": "Backspace",
+                            "Tab": "Tab",
+                          };
+                          keys.push(friendlyKeys[key] || key);
+                        }
+                      }
+
+                      if (keys.length > 0) {
+                        const formatted = keys.join("+");
+                        setQuickSaveShortcut(formatted);
+                        handleSaveSettings({ quickSaveShortcut: formatted });
+                      }
+                    }}
+                    readOnly
+                    placeholder={t("ludocard-quicksave-press-keys", "Pressione as teclas...")}
+                    className="w-36 text-center font-mono text-xs cursor-pointer bg-muted/30 focus:bg-background h-8"
+                    title="Clique e pressione a combinação de teclas desejada"
+                  />
+                  <Switch
+                    checked={quickSaveEnabled}
+                    onCheckedChange={(c) => {
+                      setQuickSaveEnabled(c);
+                      handleSaveSettings({ quickSaveEnabled: c });
+                      toast.message(c ? "Atalho de emergência ativado" : "Atalho de emergência desativado");
+                    }}
+                  />
+                </div>
+              }
+            />
+            <Separator />
+            <SettingRow
               icon={Monitor}
               title={t("ludocard-theme", "Tema")}
               description={t("ludocard-theme-desc", "Aparência da interface do aplicativo.")}
               control={
-                <Select defaultValue="dark">
+                <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -520,27 +616,52 @@ export function SettingsClient() {
                 {t("ludocard-schedule-games-in-schedule-desc", "Selecione quais jogos seguem esta rotina automática.")}
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {games.map((g) => (
-                <label
-                  key={g.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition-colors hover:border-primary/40"
-                >
-                  <Checkbox
-                    checked={!!scheduledGames[g.id]}
-                    onCheckedChange={(c) =>
-                      setScheduledGames((s) => ({ ...s, [g.id]: c === true }))
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-center justify-between border-b border-border pb-3 mb-2">
+                <span className="text-sm font-medium">
+                  {t("ludocard-schedule-all-games", "Fazer backup de todos os jogos")}
+                </span>
+                <Switch
+                  checked={allGamesScheduled}
+                  onCheckedChange={(checked) => {
+                    setAllGamesScheduled(checked)
+                    if (checked) {
+                      setScheduledGames(
+                        Object.fromEntries(games.map((g) => [g.id, true]))
+                      )
                     }
-                  />
-                  <img
-                    src={g.cover || "/placeholder.svg"}
-                    alt=""
-                    className="h-10 w-8 rounded object-cover"
-                  />
-                  <span className="flex-1 truncate text-sm font-medium">{g.title}</span>
-                  <PlatformBadge platform={g.platform} />
-                </label>
-              ))}
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {games.map((g) => (
+                  <label
+                    key={g.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition-colors",
+                      allGamesScheduled
+                        ? "opacity-75 cursor-not-allowed"
+                        : "cursor-pointer hover:border-primary/40"
+                    )}
+                  >
+                    <Checkbox
+                      checked={allGamesScheduled || !!scheduledGames[g.id]}
+                      disabled={allGamesScheduled}
+                      onCheckedChange={(c) =>
+                        setScheduledGames((s) => ({ ...s, [g.id]: c === true }))
+                      }
+                    />
+                    <img
+                      src={g.cover || "/placeholder.svg"}
+                      alt=""
+                      className="h-10 w-8 rounded object-cover"
+                    />
+                    <span className="flex-1 truncate text-sm font-medium">{g.title}</span>
+                    <PlatformBadge platform={g.platform} />
+                  </label>
+                ))}
+              </div>
               <Button
                 className="mt-2 self-end"
                 onClick={() => toast.success(t("ludocard-schedule-saved-toast", "Cronograma salvo"))}

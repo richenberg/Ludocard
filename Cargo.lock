@@ -2773,6 +2773,7 @@ dependencies = [
  "tokio",
  "uuid",
  "walkdir",
+ "windows 0.60.0",
  "winreg 0.52.0",
  "zip",
  "zstd 0.13.3",

@@ -69,7 +69,12 @@ pub struct FrontendSettings {
     pub supabase_anon_key: String,
     pub language: String,
     pub has_set_language: bool,
+    #[serde(default)]
     pub has_cloud_remote: bool,
+    #[serde(default)]
+    pub quick_save_enabled: bool,
+    #[serde(default)]
+    pub quick_save_shortcut: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1435,6 +1440,10 @@ pub async fn get_settings(app: tauri::AppHandle) -> Result<FrontendSettings, Str
             }
         };
 
+        let (quick_save_enabled, quick_save_shortcut) = app.path().app_data_dir()
+            .map(|dir| crate::hotkey::load_quick_save_settings(&dir))
+            .unwrap_or((true, "Ctrl+Shift+S".to_string()));
+
         let start_with_windows = is_autostart_enabled();
         let portable = ludusavi::prelude::is_portable();
  
@@ -1453,6 +1462,8 @@ pub async fn get_settings(app: tauri::AppHandle) -> Result<FrontendSettings, Str
             language: serde_json::to_string(&api.config.language).unwrap().trim_matches('"').to_string(),
             has_set_language: api.config.has_set_language,
             has_cloud_remote: api.config.cloud.remote.is_some(),
+            quick_save_enabled,
+            quick_save_shortcut,
         })
     })
     .await
@@ -1489,6 +1500,7 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
             crate::watcher::save_file_watcher_setting(&dir, file_watcher_enabled);
             save_system_tray_setting(&dir, system_tray_enabled);
             save_supabase_settings(&dir, &settings.supabase_url, &settings.supabase_anon_key);
+            crate::hotkey::save_quick_save_settings(&dir, settings.quick_save_enabled, &settings.quick_save_shortcut);
         }
 
         // Configure autostart
@@ -1499,6 +1511,20 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
             crate::watcher::start_file_watcher(&app_clone);
         } else {
             crate::watcher::stop_file_watcher();
+        }
+
+        // Update global hotkey registration
+        #[cfg(target_os = "windows")]
+        {
+            if settings.quick_save_enabled {
+                if let Some((modifiers, vk)) = crate::hotkey::parse_shortcut(&settings.quick_save_shortcut) {
+                    crate::hotkey::send_hotkey_command(crate::hotkey::HotkeyControl::Register { modifiers, vk });
+                } else {
+                    crate::hotkey::send_hotkey_command(crate::hotkey::HotkeyControl::Unregister);
+                }
+            } else {
+                crate::hotkey::send_hotkey_command(crate::hotkey::HotkeyControl::Unregister);
+            }
         }
 
         Ok(())

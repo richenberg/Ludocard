@@ -6,6 +6,7 @@ use tauri::Manager;
 mod commands;
 pub mod watcher;
 pub mod emulator;
+pub mod hotkey;
 
 fn main() {
     tauri::Builder::default()
@@ -71,6 +72,7 @@ fn main() {
                 // Small delay to let the app fully initialize and load scan cache
                 std::thread::sleep(std::time::Duration::from_secs(3));
                 watcher::setup_watcher(&app_handle);
+                hotkey::init_hotkey(&app_handle);
             });
             Ok(())
         })

@@ -192,7 +192,10 @@ fn launch_ludocard() -> Result<(), std::io::Error> {
         std::process::Command::new(exe_path).spawn()?;
         Ok(())
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Ludocard executable not found"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Ludocard executable not found",
+        ))  
     }
 }
 

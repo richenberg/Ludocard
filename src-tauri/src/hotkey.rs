@@ -5,8 +5,12 @@
 //! and runs a silent backup.
 
 use ludusavi::api::Ludusavi;
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::path::Path;
+#[allow(unused_imports)]
+use std::path::PathBuf;
+use std::sync::mpsc::Sender;
+#[allow(unused_imports)]
+use std::sync::mpsc::{Receiver, channel};
 use std::sync::{LazyLock, Mutex};
 use tauri::Manager;
 

@@ -3094,6 +3094,7 @@ pub async fn save_local_preset(
         let ram = format!("{} GB", ram_gb);
 
         // GPU registry detection
+        #[allow(unused_mut)]
         let mut gpu = String::new();
         #[cfg(target_os = "windows")]
         {

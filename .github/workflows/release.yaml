@@ -60,3 +60,29 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: package portable zip (windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $binPath = Get-ChildItem -Path . -Filter "Ludocard.exe" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch "bundle" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $binPath) {
+              $binPath = Get-ChildItem -Path . -Filter "ludocard-tauri.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $binPath) {
+              Write-Error "Could not find the compiled binary Ludocard.exe or ludocard-tauri.exe"
+              exit 1
+          }
+          Write-Output "Found binary at: $binPath"
+          New-Item -ItemType Directory -Force -Path temp_portable
+          Copy-Item -Path $binPath -Destination temp_portable/Ludocard.exe
+          Compress-Archive -Path temp_portable/* -DestinationPath Ludocard_x64_portable.zip
+
+      - name: upload portable zip (windows only)
+        if: matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: Ludocard_x64_portable.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

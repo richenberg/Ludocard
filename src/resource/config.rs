@@ -1182,14 +1182,17 @@ pub struct Cloud {
     /// If true, upload changes automatically after backing up,
     /// as long as there aren't any conflicts.
     pub synchronize: bool,
+    /// Email of the authenticated cloud account (fetched automatically after OAuth).
+    pub email: Option<String>,
 }
 
 impl Default for Cloud {
     fn default() -> Self {
         Self {
             remote: Default::default(),
-            path: "ludusavi-backup".to_string(),
+            path: "luducard-backup".to_string(),
             synchronize: true,
+            email: None,
         }
     }
 }
@@ -2294,6 +2297,7 @@ mod tests {
                     }),
                     path: "ludusavi-backup".to_string(),
                     synchronize: false,
+                    email: None,
                 },
                 apps: Apps {
                     rclone: App {
@@ -2421,6 +2425,7 @@ cloud:
       id: remote-id
   path: ludusavi-backup
   synchronize: true
+  email: ~
 apps:
   rclone:
     path: rclone.exe
@@ -2518,6 +2523,7 @@ customGames:
                     }),
                     path: "ludusavi-backup".to_string(),
                     synchronize: true,
+                    email: None,
                 },
                 apps: Apps {
                     rclone: App {

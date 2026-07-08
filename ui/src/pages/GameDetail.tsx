@@ -14,7 +14,7 @@ function checkIsTauri(): boolean {
 
 export default function GameDetail() {
   const { id } = useParams<{ id: string }>()
-  const { games, loading: libraryLoading } = useLibrary()
+  const { games, loading: libraryLoading, loadGames } = useLibrary()
   const isTauri = checkIsTauri()
   const { t } = useI18n()
 
@@ -56,6 +56,7 @@ export default function GameDetail() {
         gameTitle: game.title,
       })
       if (detail) setFreshGame(detail)
+      loadGames(true)
     } catch (err) {
       console.error("Failed to refresh game details:", err)
     }
@@ -77,7 +78,7 @@ export default function GameDetail() {
   return (
     <AppShell
       title={game.title}
-      description={t("luducard-details-desc", "Detalhes e histÃ³rico de backups")}
+      description={t("luducard-details-desc", "Detalhes e histórico de backups")}
       actions={
         <Button
           variant="outline"

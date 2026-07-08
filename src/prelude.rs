@@ -31,7 +31,7 @@ pub static CANONICAL_VERSION: LazyLock<(u32, u32, u32)> = LazyLock::new(|| {
 pub type AnyError = Box<dyn std::error::Error>;
 
 pub const SKIP: &str = "<skip>";
-pub const APP_DIR_NAME: &str = "ludusavi";
+pub const APP_DIR_NAME: &str = "luducard";
 #[allow(unused)]
 pub const LINUX_APP_ID: &str = "com.mtkennerly.ludusavi";
 const PORTABLE_FLAG_FILE_NAME: &str = "luducard.portable";

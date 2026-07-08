@@ -55,7 +55,8 @@ export function CloudClient() {
   const [cloudPath, setCloudPath] = useState("luducard-backup")
   const [cloudSync, setCloudSync] = useState(false)
   const [activeProvider, setActiveProvider] = useState<CloudProvider>("Google Drive")
-  const [remoteConnected, setRemoteConnected] = useState(false)
+  const [remoteConnected, setRemoteConnected] = useState(() => typeof window !== "undefined" && localStorage.getItem("luducard_has_cloud_remote") === "true")
+  const [cloudEmail, setCloudEmail] = useState("")
   
   // Wizard flow states
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1)
@@ -63,14 +64,14 @@ export function CloudClient() {
   const [isLinking, setIsLinking] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [testError, setTestError] = useState("")
-  const [showDashboard, setShowDashboard] = useState(false)
+  const [showDashboard, setShowDashboard] = useState(() => typeof window !== "undefined" && localStorage.getItem("luducard_has_cloud_remote") === "true")
   
   // Test steps progress
   const [testSteps, setTestSteps] = useState([
-    { id: 1, label: "Criar arquivo temporÃ¡rio de teste", status: "idle" as "idle" | "running" | "success" | "error" },
+    { id: 1, label: "Criar arquivo temporário de teste", status: "idle" as "idle" | "running" | "success" | "error" },
     { id: 2, label: "Fazer upload do arquivo de teste para a nuvem", status: "idle" as "idle" | "running" | "success" | "error" },
     { id: 3, label: "Baixar e verificar o arquivo de teste", status: "idle" as "idle" | "running" | "success" | "error" },
-    { id: 4, label: "Limpar os arquivos temporÃ¡rios", status: "idle" as "idle" | "running" | "success" | "error" },
+    { id: 4, label: "Limpar os arquivos temporários", status: "idle" as "idle" | "running" | "success" | "error" },
   ])
   
   // Other settings
@@ -100,14 +101,18 @@ export function CloudClient() {
         language: string;
         hasSetLanguage: boolean;
         hasCloudRemote: boolean;
+        cloudEmail?: string;
       }>("get_settings")
       
+      const hasRemote = s.hasCloudRemote || false;
       setRclonePath(s.rclonePath || "")
       setCloudPath(s.cloudPath || "luducard-backup")
       setCloudSync(s.cloudSync || false)
-      setRemoteConnected(s.hasCloudRemote || false)
+      setRemoteConnected(hasRemote)
+      setCloudEmail(s.cloudEmail || "")
+      localStorage.setItem("luducard_has_cloud_remote", hasRemote ? "true" : "false")
       
-      if (s.hasCloudRemote) {
+      if (hasRemote) {
         setShowDashboard(true)
       } else if (s.rclonePath) {
         setCurrentStep(2) // Go to login if rclone is installed
@@ -143,7 +148,7 @@ export function CloudClient() {
   // Action: Select Rclone Path manually
   const handleSelectRcloneManual = async () => {
     if (!isTauri) {
-      toast.info("[Mock] SeleÃ§Ã£o manual de diretÃ³rio")
+      toast.info("[Mock] Seleção manual de diretório")
       setRclonePath("/mock/rclone/path/rclone.exe")
       setCurrentStep(2)
       return
@@ -174,7 +179,7 @@ export function CloudClient() {
   // Action: Link account via OAuth (no email required)
   const handleLinkAccount = async () => {
     setIsLinking(true)
-    const id = toast.loading("Abrindo navegador para autenticaÃ§Ã£o. Por favor, autorize no navegador...")
+    const id = toast.loading("Abrindo navegador para autenticação. Por favor, autorize no navegador...")
     try {
       if (!isTauri) {
         await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -187,6 +192,7 @@ export function CloudClient() {
       // Pass a placeholder email/ID since Rclone config create will manage oauth
       await invoke("configure_cloud_remote", { provider: activeProvider, email: "cloud_user" })
       setRemoteConnected(true)
+      localStorage.setItem("luducard_has_cloud_remote", "true")
       toast.success("Conta vinculada com sucesso!", { id })
       setCurrentStep(3)
     } catch (err) {
@@ -199,7 +205,7 @@ export function CloudClient() {
   // Action: Save Cloud Folder Path (Step 3)
   const handleSaveCloudFolder = async () => {
     if (!cloudPath.trim()) {
-      toast.error("O nome da pasta nÃ£o pode ser vazio.")
+      toast.error("O nome da pasta não pode ser vazio.")
       return
     }
     const id = toast.loading("Salvando pasta da nuvem...")
@@ -240,6 +246,7 @@ export function CloudClient() {
       setCloudSync(false)
       setCloudPath("luducard-backup")
       setShowDashboard(false)
+      localStorage.setItem("luducard_has_cloud_remote", "false")
       setCurrentStep(2)
       toast.success("Conta desconectada com sucesso!", { id })
     } catch (err) {
@@ -274,7 +281,7 @@ export function CloudClient() {
         await new Promise((resolve) => setTimeout(resolve, 800))
         updateStepStatus(4, "success")
         
-        toast.success("Teste de conexÃ£o concluÃ­do com sucesso!")
+        toast.success("Teste de conexão concluído com sucesso!")
         return
       }
       
@@ -292,13 +299,13 @@ export function CloudClient() {
       await new Promise((resolve) => setTimeout(resolve, 300))
       updateStepStatus(4, "success")
       
-      toast.success("Teste de ida e volta concluÃ­do com sucesso!")
+      toast.success("Teste de ida e volta concluído com sucesso!")
     } catch (err) {
       setTestSteps((steps) =>
         steps.map((s) => (s.status === "running" ? { ...s, status: "error" } : s))
       )
       setTestError(String(err))
-      toast.error(`Falha no teste de conexÃ£o: ${err}`)
+      toast.error(`Falha no teste de conexão: ${err}`)
     } finally {
       setIsTesting(false)
     }
@@ -317,12 +324,12 @@ export function CloudClient() {
             cloudSync: checked
           }
         })
-        toast.success(checked ? "SincronizaÃ§Ã£o global ativada!" : "SincronizaÃ§Ã£o global desativada.")
+        toast.success(checked ? "Sincronização global ativada!" : "Sincronização global desativada.")
       } catch (err) {
-        toast.error(`Falha ao salvar configuraÃ§Ã£o: ${err}`)
+        toast.error(`Falha ao salvar configuração: ${err}`)
       }
     } else {
-      toast.success(checked ? "[Mock] SincronizaÃ§Ã£o global ligada!" : "[Mock] SincronizaÃ§Ã£o global desligada.")
+      toast.success(checked ? "[Mock] Sincronização global ligada!" : "[Mock] Sincronização global desligada.")
     }
   }
 
@@ -341,7 +348,8 @@ export function CloudClient() {
       }
       setCloudSync(true)
       setShowDashboard(true)
-      toast.success("ConfiguraÃ§Ã£o de Nuvem ativada com sucesso!")
+      localStorage.setItem("luducard_has_cloud_remote", "true")
+      toast.success("Configuração de Nuvem ativada com sucesso!")
     } catch (err) {
       toast.error(`Falha ao finalizar: ${err}`)
     }
@@ -359,25 +367,47 @@ export function CloudClient() {
   if (showDashboard) {
     return (
       <div className="flex flex-col gap-6 animate-in fade-in-50 duration-300">
-        <Card className="border-emerald-500/25 bg-emerald-500/5">
+        <Card className={cn(
+          "transition-all duration-300",
+          cloudSync
+            ? "border-emerald-500/25 bg-emerald-500/5"
+            : "border-amber-500/25 bg-amber-500/5"
+        )}>
           <CardContent className="pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3 text-left">
-              <CheckCircle2 className="size-6 text-emerald-400 shrink-0 mt-0.5" />
+              {cloudSync ? (
+                <CheckCircle2 className="size-6 text-emerald-400 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="size-6 text-amber-400 shrink-0 mt-0.5" />
+              )}
               <div className="flex flex-col gap-0.5">
-                <span className="text-base font-semibold text-emerald-400">SincronizaÃ§Ã£o em Nuvem Ativa e SaudÃ¡vel</span>
+                <span className={cn(
+                  "text-base font-semibold",
+                  cloudSync ? "text-emerald-400" : "text-amber-400"
+                )}>
+                  {cloudSync ? "Sincronização em Nuvem Ativa e Saudável" : "Sincronização em Nuvem Pausada"}
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  Seus backups locais serÃ£o enviados e sincronizados automaticamente na nuvem.
+                  {cloudSync
+                    ? "Seus backups locais serão enviados e sincronizados automaticamente na nuvem."
+                    : "O envio para a nuvem está pausado. Ative para sincronizar seus saves."}
                 </span>
               </div>
             </div>
-            <Button variant="destructive" size="sm" onClick={handleUnlink}>
-              <Unlink className="size-4 mr-2" />
-              Desconectar Conta
-            </Button>
+            <div className="flex items-center gap-3">
+              <Switch checked={cloudSync} onCheckedChange={handleEnableGlobalSync} />
+              <Button variant="destructive" size="sm" onClick={handleUnlink}>
+                <Unlink className="size-4 mr-2" />
+                Desconectar Conta
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={cn(
+          "grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300",
+          !cloudSync && "opacity-40 grayscale pointer-events-none"
+        )}>
           {/* Details */}
           <Card className="border-primary/10">
             <CardHeader>
@@ -391,6 +421,12 @@ export function CloudClient() {
                 <span className="text-muted-foreground">Provedor Conectado:</span>
                 <span className="font-medium text-foreground">{activeProvider}</span>
               </div>
+              {cloudEmail && (
+                <div className="flex justify-between py-1.5 border-b border-border/40">
+                  <span className="text-muted-foreground">E-mail da Conta:</span>
+                  <span className="font-medium text-foreground">{cloudEmail}</span>
+                </div>
+              )}
               <div className="flex justify-between py-1.5 border-b border-border/40">
                 <span className="text-muted-foreground">Pasta de Destino:</span>
                 <span className="font-mono text-xs">{cloudPath}</span>
@@ -400,7 +436,7 @@ export function CloudClient() {
                 <span className="font-medium text-foreground">Rclone</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-muted-foreground">Caminho ExecutÃ¡vel:</span>
+                <span className="text-muted-foreground">Caminho Executável:</span>
                 <span className="font-mono text-xs max-w-[200px] truncate" title={rclonePath}>{rclonePath}</span>
               </div>
             </CardContent>
@@ -411,26 +447,18 @@ export function CloudClient() {
             <CardHeader>
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Sparkles className="size-4 text-primary" />
-                Regras de SincronizaÃ§Ã£o
+                Regras de Sincronização
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-0.5 text-left">
-                  <span className="text-xs font-semibold">SincronizaÃ§Ã£o em Nuvem</span>
-                  <span className="text-[10px] text-muted-foreground">Habilitar ou desabilitar o envio remoto.</span>
-                </div>
-                <Switch checked={cloudSync} onCheckedChange={handleEnableGlobalSync} />
-              </div>
-              <Separator className="bg-border/40" />
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-0.5 text-left">
-                  <span className="text-xs font-semibold">Upload AutomÃ¡tico</span>
+                  <span className="text-xs font-semibold">Upload Automático</span>
                   <span className="text-[10px] text-muted-foreground">Upar saves assim que o backup local for gerado.</span>
                 </div>
                 <Switch checked={autoUpload} onCheckedChange={(c) => {
                   setAutoUpload(c)
-                  toast.success(c ? "Upload automÃ¡tico ativado" : "Upload automÃ¡tico desativado")
+                  toast.success(c ? "Upload automático ativado" : "Upload automático desativado")
                 }} />
               </div>
               <Separator className="bg-border/40" />
@@ -441,7 +469,7 @@ export function CloudClient() {
                 </div>
                 <Switch checked={autoDownload} onCheckedChange={(c) => {
                   setAutoDownload(c)
-                  toast.success(c ? "Download automÃ¡tico ativado" : "Download automÃ¡tico desativado")
+                  toast.success(c ? "Download automático ativado" : "Download automático desativado")
                 }} />
               </div>
             </CardContent>
@@ -462,8 +490,8 @@ export function CloudClient() {
               { num: 1, name: "Motor (Rclone)", desc: "Instalar rclone" },
               { num: 2, name: "Provedor (Login)", desc: "Fazer Login" },
               { num: 3, name: "Pasta Destino", desc: "Configurar pasta" },
-              { num: 4, name: "ValidaÃ§Ã£o", desc: "Testar conexÃ£o" },
-              { num: 5, name: "AtivaÃ§Ã£o", desc: "Finalizar" },
+              { num: 4, name: "Validação", desc: "Testar conexão" },
+              { num: 5, name: "Ativação", desc: "Finalizar" },
             ].map((step, idx) => (
               <div key={step.num} className="flex flex-1 items-center last:flex-initial">
                 <button
@@ -516,8 +544,8 @@ export function CloudClient() {
                 <Download className="size-5" />
               </span>
               <div>
-                <CardTitle className="text-base">Passo 1: InstalaÃ§Ã£o do Motor Rclone</CardTitle>
-                <CardDescription>O Rclone Ã© o motor de cÃ³digo aberto seguro usado para fazer o upload e download de arquivos em nuvem.</CardDescription>
+                <CardTitle className="text-base">Passo 1: Instalação do Motor Rclone</CardTitle>
+                <CardDescription>O Rclone é o motor de código aberto seguro usado para fazer o upload e download de arquivos em nuvem.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -533,10 +561,10 @@ export function CloudClient() {
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={handleSelectRcloneManual}>
-                    Alterar ExecutÃ¡vel
+                    Alterar Executável
                   </Button>
                   <Button size="sm" onClick={() => setCurrentStep(2)}>
-                    AvanÃ§ar
+                    Avançar
                     <ArrowRight className="size-4 ml-1" />
                   </Button>
                 </div>
@@ -547,9 +575,9 @@ export function CloudClient() {
                   <AlertTriangle className="size-7" />
                 </span>
                 <div className="max-w-md flex flex-col gap-1">
-                  <span className="text-sm font-semibold">Nenhum executÃ¡vel Rclone encontrado</span>
+                  <span className="text-sm font-semibold">Nenhum executável Rclone encontrado</span>
                   <p className="text-xs text-muted-foreground">
-                    Para que a sincronizaÃ§Ã£o funcione, precisamos baixar o executÃ¡vel do Rclone ou indicar o caminho de um jÃ¡ instalado.
+                    Para que a sincronização funcione, precisamos baixar o executável do Rclone ou indicar o caminho de um já instalado.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
@@ -595,7 +623,7 @@ export function CloudClient() {
               </span>
               <div>
                 <CardTitle className="text-base">Passo 2: Vincular Conta de Nuvem</CardTitle>
-                <CardDescription>Escolha o seu provedor de nuvem de preferÃªncia e faÃ§a login.</CardDescription>
+                <CardDescription>Escolha o seu provedor de nuvem de preferência e faça login.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -633,7 +661,7 @@ export function CloudClient() {
                   <div className="flex flex-col gap-0.5 text-left">
                     <span className="text-sm font-semibold text-emerald-400">Conta Vinculada!</span>
                     <span className="text-xs text-muted-foreground">
-                      ConexÃ£o via <strong className="text-foreground">{activeProvider}</strong> estabelecida com sucesso.
+                      Conexão via <strong className="text-foreground">{activeProvider}</strong> estabelecida com sucesso.
                     </span>
                   </div>
                 </div>
@@ -643,7 +671,7 @@ export function CloudClient() {
                     Desconectar
                   </Button>
                   <Button size="sm" onClick={() => setCurrentStep(3)}>
-                    AvanÃ§ar
+                    Avançar
                     <ArrowRight className="size-4 ml-1" />
                   </Button>
                 </div>
@@ -651,9 +679,9 @@ export function CloudClient() {
             ) : (
               <div className="flex flex-col gap-4 max-w-md border border-border p-5 rounded-xl bg-muted/10 text-left">
                 <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">AutenticaÃ§Ã£o do Provedor</span>
+                  <span className="text-sm font-semibold">Autenticação do Provedor</span>
                   <p className="text-xs text-muted-foreground">
-                    Ao clicar no botÃ£o abaixo, abriremos o seu navegador web para que vocÃª possa escolher sua conta e fazer o login com seguranÃ§a.
+                    Ao clicar no botão abaixo, abriremos o seu navegador web para que você possa escolher sua conta e fazer o login com segurança.
                   </p>
                 </div>
 
@@ -692,7 +720,7 @@ export function CloudClient() {
               </span>
               <div>
                 <CardTitle className="text-base">Passo 3: Pasta de Destino na Nuvem</CardTitle>
-                <CardDescription>Escolha a pasta do seu provedor onde seus backups de save serÃ£o guardados.</CardDescription>
+                <CardDescription>Escolha a pasta do seu provedor onde seus backups de save serão guardados.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -707,11 +735,11 @@ export function CloudClient() {
                   onChange={(e) => setCloudPath(e.target.value)}
                 />
                 <span className="text-[10px] text-muted-foreground">
-                  Se vocÃª jÃ¡ tem uma pasta de backups no {activeProvider}, digite o nome exato dela aqui para reutilizÃ¡-la. Caso contrÃ¡rio, digite um novo nome e ela serÃ¡ criada automaticamente.
+                  Se você já tem uma pasta de backups no {activeProvider}, digite o nome exato dela aqui para reutilizá-la. Caso contrário, digite um novo nome e ela será criada automaticamente.
                 </span>
               </div>
               <Button onClick={handleSaveCloudFolder} className="font-semibold">
-                Salvar e AvanÃ§ar
+                Salvar e Avançar
                 <ArrowRight className="size-4 ml-2" />
               </Button>
             </div>
@@ -728,8 +756,8 @@ export function CloudClient() {
                 <RefreshCw className="size-5" />
               </span>
               <div>
-                <CardTitle className="text-base">Passo 4: ValidaÃ§Ã£o de ConexÃ£o (Ida & Volta)</CardTitle>
-                <CardDescription>Fazemos um teste real escrevendo e lendo um arquivo de teste na sua pasta de nuvem para validar as permissÃµes.</CardDescription>
+                <CardTitle className="text-base">Passo 4: Validação de Conexão (Ida & Volta)</CardTitle>
+                <CardDescription>Fazemos um teste real escrevendo e lendo um arquivo de teste na sua pasta de nuvem para validar as permissões.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -777,8 +805,8 @@ export function CloudClient() {
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400 text-sm flex items-start gap-3 mt-3 shadow-md shadow-emerald-500/5 text-left">
                   <CheckCircle2 className="size-5 shrink-0 mt-0.5 text-emerald-400 animate-bounce" />
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-semibold text-emerald-400">SincronizaÃ§Ã£o configurada com sucesso e pronta para uso!</span>
-                    <span className="text-xs text-emerald-500/80 font-medium">O teste de upload e download do arquivo temporÃ¡rio funcionou perfeitamente.</span>
+                    <span className="font-semibold text-emerald-400">Sincronização configurada com sucesso e pronta para uso!</span>
+                    <span className="text-xs text-emerald-500/80 font-medium">O teste de upload e download do arquivo temporário funcionou perfeitamente.</span>
                   </div>
                 </div>
               )}
@@ -792,12 +820,12 @@ export function CloudClient() {
                   {isTesting ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
-                      Testando ConexÃ£o...
+                      Testando Conexão...
                     </>
                   ) : (
                     <>
                       <RefreshCw className="size-4 mr-2" />
-                      Testar ConexÃ£o Real
+                      Testar Conexão Real
                     </>
                   )}
                 </Button>
@@ -806,7 +834,7 @@ export function CloudClient() {
                     variant="outline" 
                     onClick={() => setCurrentStep(5)}
                   >
-                    AvanÃ§ar
+                    Avançar
                     <ArrowRight className="size-4 ml-1" />
                   </Button>
                 )}
@@ -825,8 +853,8 @@ export function CloudClient() {
                 <Cloud className="size-5" />
               </span>
               <div>
-                <CardTitle className="text-base">Passo 5: Regras de SincronizaÃ§Ã£o & AtivaÃ§Ã£o</CardTitle>
-                <CardDescription>Ajuste os gatilhos automÃ¡ticos para que a nuvem trabalhe por vocÃª.</CardDescription>
+                <CardTitle className="text-base">Passo 5: Regras de Sincronização & Ativação</CardTitle>
+                <CardDescription>Ajuste os gatilhos automáticos para que a nuvem trabalhe por você.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -836,7 +864,7 @@ export function CloudClient() {
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-semibold flex items-center gap-1.5">
                   <Cloud className="size-4 text-primary" />
-                  Ativar SincronizaÃ§Ã£o em Nuvem Global
+                  Ativar Sincronização em Nuvem Global
                 </span>
                 <span className="text-xs text-muted-foreground">Quando desativado, o envio para a nuvem fica em pausa.</span>
               </div>
@@ -849,9 +877,9 @@ export function CloudClient() {
                 <span className="flex items-center gap-3 text-left">
                   <ArrowUpFromLine className="size-4 text-primary shrink-0" />
                   <span className="flex flex-col">
-                    <span className="text-xs font-semibold">Upload automÃ¡tico apÃ³s backup local</span>
+                    <span className="text-xs font-semibold">Upload automático após backup local</span>
                     <span className="text-[10px] text-muted-foreground">
-                      Envia para a nuvem imediatamente apÃ³s cada backup.
+                      Envia para a nuvem imediatamente após cada backup.
                     </span>
                   </span>
                 </span>
@@ -859,7 +887,7 @@ export function CloudClient() {
                   checked={autoUpload} 
                   onCheckedChange={(c) => {
                     setAutoUpload(c)
-                    toast.message(c ? "Upload automÃ¡tico ligado" : "Upload automÃ¡tico desligado")
+                    toast.message(c ? "Upload automático ligado" : "Upload automático desligado")
                   }} 
                 />
               </label>
@@ -870,7 +898,7 @@ export function CloudClient() {
                   <span className="flex flex-col">
                     <span className="text-xs font-semibold">Baixar se o save remoto for mais recente</span>
                     <span className="text-[10px] text-muted-foreground">
-                      Resolve conflitos priorizando a versÃ£o mais nova da nuvem.
+                      Resolve conflitos priorizando a versão mais nova da nuvem.
                     </span>
                   </span>
                 </span>
@@ -878,7 +906,7 @@ export function CloudClient() {
                   checked={autoDownload} 
                   onCheckedChange={(c) => {
                     setAutoDownload(c)
-                    toast.message(c ? "Download automÃ¡tico ligado" : "Download automÃ¡tico desligado")
+                    toast.message(c ? "Download automático ligado" : "Download automático desligado")
                   }} 
                 />
               </label>

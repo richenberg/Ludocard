@@ -6,7 +6,7 @@ export default function Cloud() {
   const { t } = useI18n()
   return (
     <AppShell
-      title={t("luducard-cloud-title", "Nuvem & SincronizaÃ§Ã£o")}
+      title={t("luducard-cloud-title", "Nuvem & Sincronização")}
       description={t("luducard-cloud-desc", "Configure o backup remoto dos seus saves")}
     >
       <CloudClient />

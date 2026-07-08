@@ -6,8 +6,8 @@ export default function Settings() {
   const { t } = useI18n()
   return (
     <AppShell
-      title={t("luducard-settings", "ConfiguraÃ§Ãµes")}
-      description={t("luducard-settings-desc", "PreferÃªncias e comportamento do aplicativo")}
+      title={t("luducard-settings", "Configurações")}
+      description={t("luducard-settings-desc", "Preferências e comportamento do aplicativo")}
     >
       <SettingsClient />
     </AppShell>

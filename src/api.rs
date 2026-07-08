@@ -42,9 +42,19 @@ impl Ludusavi {
         }
     }
 
+    #[allow(clippy::collapsible_if)]
     pub fn load() -> Result<Self, Error> {
         let config = Config::load()?;
         crate::lang::TRANSLATOR.set_language(config.language);
+
+        // Auto-download manifest if missing
+        use crate::resource::ResourceFile;
+        if !crate::resource::manifest::Manifest::path().exists() {
+            if let Ok(mut cache) = crate::resource::cache::Cache::load() {
+                let _ = crate::resource::manifest::Manifest::update_mut(&config, &mut cache, true);
+            }
+        }
+
         let manifest = Manifest::load()?;
 
         Ok(Self::new(config, manifest))

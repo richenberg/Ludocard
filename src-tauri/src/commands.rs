@@ -3667,6 +3667,7 @@ pub async fn configure_cloud_remote(app: tauri::AppHandle, provider: String, ema
 
 /// Fetches the authenticated user's email by extracting the access_token from rclone config
 /// and querying the provider's API.
+#[allow(clippy::collapsible_if)]
 fn fetch_cloud_email(
     rclone_path: &StrictPath,
     remote: &ludusavi::cloud::Remote,

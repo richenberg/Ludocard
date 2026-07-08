@@ -58,7 +58,7 @@ export function ConflictResolutionModal({
               {t("luducard-conflict-title", "Conflito de Save Detectado")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Os dados de save para <strong className="text-foreground">{conflict.gameTitle}</strong> no seu PC local e na nuvem sÃ£o diferentes. Escolha qual progresso deseja manter.
+              Os dados de save para <strong className="text-foreground">{conflict.gameTitle}</strong> no seu PC local e na nuvem são diferentes. Escolha qual progresso deseja manter.
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ export function ConflictResolutionModal({
               ) : (
                 <HardDrive className="size-4 mr-2" />
               )}
-              {t("luducard-conflict-keep-local", "Manter versÃ£o deste PC")}
+              {t("luducard-conflict-keep-local", "Manter versão deste PC")}
             </Button>
           </div>
 
@@ -193,7 +193,7 @@ export function ConflictResolutionModal({
               ) : (
                 <Cloud className="size-4 mr-2" />
               )}
-              {t("luducard-conflict-keep-cloud", "Manter versÃ£o da Nuvem")}
+              {t("luducard-conflict-keep-cloud", "Manter versão da Nuvem")}
             </Button>
           </div>
         </div>
@@ -201,7 +201,7 @@ export function ConflictResolutionModal({
         {/* Footer */}
         <div className="p-6 border-t border-border bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-xs text-muted-foreground text-center sm:text-left font-medium">
-            A versÃ£o rejeitada serÃ¡ sobrescrita. Esta aÃ§Ã£o Ã© irreversÃ­vel.
+            A versão rejeitada será sobrescrita. Esta ação é irreversível.
           </span>
           <Button
             variant="ghost"

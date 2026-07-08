@@ -85,13 +85,14 @@ interface GameCardProps {
   onSelectedChange: (selected: boolean) => void
   onBackup: (title: string) => void
   onRestore: (title: string) => void
+  showNotes?: boolean
 }
 
 export function cleanGameTitle(title: string): string {
   return title.replace(/^\[(Yuzu|Ryujinx|Dolphin|RetroArch|mGBA|Citra|PCSX2|PPSSPP|Cemu)\]\s+/, "");
 }
 
-function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: GameCardProps) {
+function GameCard({ game, selected, onSelectedChange, onBackup, onRestore, showNotes = true }: GameCardProps) {
   const { t } = useI18n()
   const status = statusConfig[game.status]
   const cleanTitle = cleanGameTitle(game.title)
@@ -117,7 +118,7 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
         game.notes = localNotes;
       } catch (err) {
-        toast.error(`Falha ao salvar anotaÃ§Ã£o: ${err}`);
+        toast.error(`Falha ao salvar anotação: ${err}`);
       }
     } else {
       game.notes = localNotes;
@@ -167,15 +168,17 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
         </div>
       </div>
 
-      <div className="px-3 pb-3 pt-0">
-        <textarea
-          value={localNotes}
-          onChange={(e) => setLocalNotes(e.target.value)}
-          onBlur={saveNotes}
-          placeholder={t("luducard-diario-bordo-placeholder", "DiÃ¡rio de Bordo (anotaÃ§Ãµes)...")}
-          className="w-full min-h-[42px] max-h-[80px] resize-y bg-background/50 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded p-1.5 text-[11px] leading-normal outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
-        />
-      </div>
+      {showNotes && (
+        <div className="px-3 pb-3 pt-0">
+          <textarea
+            value={localNotes}
+            onChange={(e) => setLocalNotes(e.target.value)}
+            onBlur={saveNotes}
+            placeholder={t("luducard-diario-bordo-placeholder", "Diário de Bordo (anotações)...")}
+            className="w-full min-h-[42px] max-h-[80px] resize-y bg-background/50 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded p-1.5 text-[11px] leading-normal outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
+          />
+        </div>
+      )}
 
       {/* Hover quick actions */}
       <div className="pointer-events-none absolute inset-x-0 bottom-[68px] flex items-center justify-center gap-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
@@ -201,7 +204,7 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore }: Gam
   )
 }
 
-function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: GameCardProps) {
+function GameRow({ game, selected, onSelectedChange, onBackup, onRestore, showNotes = true }: GameCardProps) {
   const { t } = useI18n()
   const status = statusConfig[game.status]
   const cleanTitle = cleanGameTitle(game.title)
@@ -227,7 +230,7 @@ function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: Game
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
         game.notes = localNotes;
       } catch (err) {
-        toast.error(`Falha ao salvar anotaÃ§Ã£o: ${err}`);
+        toast.error(`Falha ao salvar anotação: ${err}`);
       }
     } else {
       game.notes = localNotes;
@@ -260,19 +263,21 @@ function GameRow({ game, selected, onSelectedChange, onBackup, onRestore }: Game
             {statusLabel}
           </span>
         </div>
-        <input
-          type="text"
-          value={localNotes}
-          onChange={(e) => setLocalNotes(e.target.value)}
-          onBlur={saveNotes}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.currentTarget.blur();
-            }
-          }}
-          placeholder={t("luducard-diario-bordo-placeholder-short", "DiÃ¡rio de Bordo...")}
-          className="mt-1 w-full bg-background/30 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded px-2 py-0.5 text-[10px] outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
-        />
+        {showNotes && (
+          <input
+            type="text"
+            value={localNotes}
+            onChange={(e) => setLocalNotes(e.target.value)}
+            onBlur={saveNotes}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder={t("luducard-diario-bordo-placeholder-short", "Diário de Bordo...")}
+            className="mt-1 w-full bg-background/30 border border-border/40 hover:border-border/80 focus:border-primary/50 rounded px-2 py-0.5 text-[10px] outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
+          />
+        )}
       </div>
       <div className="hidden w-24 shrink-0 flex-col items-end text-xs sm:flex">
         <span className="font-medium text-foreground">{formatSize(game.sizeMB)}</span>
@@ -304,6 +309,7 @@ interface LibraryClientProps {
 export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
   const { t } = useI18n()
   const { games, loading, loadGames, stats } = useLibrary()
+  const showNotes = localStorage.getItem("luducard_show_notes_in_library") !== "false"
   const [view, setView] = useState<"grid" | "list">("grid")
   const [query, setQuery] = useState("")
   const [platform, setPlatform] = useState<Platform | "all">("all")
@@ -327,13 +333,13 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
           return;
         }
         await invoke("backup_game", { gameTitle: title });
-        toast.success(`${t("luducard-backup-completed-for", "Backup de")} "${title}" ${t("luducard-completed", "concluÃ­do!")}`, { id });
+        toast.success(`${t("luducard-backup-completed-for", "Backup de")} "${title}" ${t("luducard-completed", "concluído!")}`, { id });
         loadGames(true);
       } catch (err) {
         toast.error(`${t("luducard-backup-failed-for", "Falha no backup de")} "${title}": ${err}`, { id });
       }
     } else {
-      toast.success(`[Mock] Backup de "${title}" concluÃ­do!`);
+      toast.success(`[Mock] Backup de "${title}" concluído!`);
     }
   };
 
@@ -342,17 +348,17 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
     const title = conflictInfo.gameTitle;
     const id = toast.loading(
       direction === "local"
-        ? `Resolvendo conflito: mantendo a versÃ£o local de "${title}"...`
-        : `Resolvendo conflito: baixando a versÃ£o da nuvem de "${title}"...`
+        ? `Resolvendo conflito: mantendo a versão local de "${title}"...`
+        : `Resolvendo conflito: baixando a versão da nuvem de "${title}"...`
     );
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       if (direction === "local") {
         await invoke("backup_game", { gameTitle: title });
-        toast.success(`VersÃ£o local de "${title}" salva na nuvem!`, { id });
+        toast.success(`Versão local de "${title}" salva na nuvem!`, { id });
       } else {
         await invoke("restore_game", { gameTitle: title, backupId: null });
-        toast.success(`VersÃ£o da nuvem de "${title}" restaurada!`, { id });
+        toast.success(`Versão da nuvem de "${title}" restaurada!`, { id });
       }
       setConflictModalOpen(false);
       setConflictInfo(null);
@@ -368,13 +374,13 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("restore_game", { gameTitle: title });
-        toast.success(`${t("luducard-restore-completed-for", "RestauraÃ§Ã£o de")} "${title}" ${t("luducard-completed-fem", "concluÃ­da!")}`, { id });
+        toast.success(`${t("luducard-restore-completed-for", "Restauração de")} "${title}" ${t("luducard-completed-fem", "concluída!")}`, { id });
         loadGames(true);
       } catch (err) {
         toast.error(`${t("luducard-restore-failed-for", "Falha ao restaurar")} "${title}": ${err}`, { id });
       }
     } else {
-      toast.success(`[Mock] RestauraÃ§Ã£o de "${title}" concluÃ­da!`);
+      toast.success(`[Mock] Restauração de "${title}" concluída!`);
     }
   };
 
@@ -561,10 +567,10 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
             variant="outline"
             spacing={0}
           >
-            <ToggleGroupItem value="grid" aria-label={t("luducard-grid-view", "VisualizaÃ§Ã£o em grade")}>
+            <ToggleGroupItem value="grid" aria-label={t("luducard-grid-view", "Visualização em grade")}>
               <LayoutGrid />
             </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label={t("luducard-list-view", "VisualizaÃ§Ã£o em lista")}>
+            <ToggleGroupItem value="list" aria-label={t("luducard-list-view", "Visualização em lista")}>
               <List />
             </ToggleGroupItem>
           </ToggleGroup>
@@ -584,12 +590,12 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
             </EmptyMedia>
             <EmptyTitle>
               {games.length === 0 
-                ? "VocÃª ainda nÃ£o tem jogos" 
+                ? "Você ainda não tem jogos" 
                 : t("luducard-no-games-found", "Nenhum jogo encontrado")}
             </EmptyTitle>
             <EmptyDescription>
               {games.length === 0
-                ? "Adicione caminhos ou realize um escaneamento para comeÃ§ar."
+                ? "Adicione caminhos ou realize um escaneamento para começar."
                 : t("luducard-adjust-filters-desc", "Ajuste os filtros ou escaneie suas pastas para adicionar novos jogos.")}
             </EmptyDescription>
           </EmptyHeader>
@@ -604,6 +610,7 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
               onSelectedChange={(s) => setSelected((prev) => ({ ...prev, [game.id]: s }))}
               onBackup={handleBackup}
               onRestore={handleRestore}
+              showNotes={showNotes}
             />
           ))}
         </div>
@@ -617,6 +624,7 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
               onSelectedChange={(s) => setSelected((prev) => ({ ...prev, [game.id]: s }))}
               onBackup={handleBackup}
               onRestore={handleRestore}
+              showNotes={showNotes}
             />
           ))}
         </div>

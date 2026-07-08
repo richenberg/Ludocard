@@ -33,10 +33,10 @@ export function AppSidebar() {
   const navItems = [
     { title: t("luducard-library", "Biblioteca"), href: "/", icon: LibraryBig },
     { title: t("luducard-scan-and-add", "Escanear & Adicionar"), href: "/scan", icon: ScanLine },
-    { title: t("luducard-cloud-and-sync", "Nuvem & SincronizaÃ§Ã£o"), href: "/cloud", icon: CloudCog },
+    { title: t("luducard-cloud-and-sync", "Nuvem & Sincronização"), href: "/cloud", icon: CloudCog },
     { title: t("luducard-save-share-hub", "Save Share HUB"), href: "/community", icon: Users },
     { title: t("luducard-preset-share-hub", "Preset Share HUB"), href: "/presets", icon: SlidersHorizontal },
-    { title: t("luducard-settings", "ConfiguraÃ§Ãµes"), href: "/settings", icon: Settings },
+    { title: t("luducard-settings", "Configurações"), href: "/settings", icon: Settings },
     { title: t("luducard-support-project", "Apoiar o Projeto"), href: "/support", icon: Heart },
   ]
 
@@ -61,7 +61,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{t("luducard-navigation", "NavegaÃ§Ã£o")}</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("luducard-navigation", "Navegação")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {

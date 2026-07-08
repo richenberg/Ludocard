@@ -16,6 +16,7 @@ import {
   Database,
   Key,
   Zap,
+  AlertTriangle,
 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -82,7 +83,7 @@ export function SettingsClient() {
     { key: "wed", label: t("luducard-day-wed", "Qua") },
     { key: "thu", label: t("luducard-day-thu", "Qui") },
     { key: "fri", label: t("luducard-day-fri", "Sex") },
-    { key: "sat", label: t("luducard-day-sat", "SÃ¡b") }
+    { key: "sat", label: t("luducard-day-sat", "Sáb") }
   ]
   const [activeDays, setActiveDays] = useState<string[]>(["mon", "wed", "fri"])
 
@@ -98,9 +99,13 @@ export function SettingsClient() {
   const [portable, setPortable] = useState(false)
   const [supabaseUrl, setSupabaseUrl] = useState("")
   const [supabaseAnonKey, setSupabaseAnonKey] = useState("")
+  const [confirmReset, setConfirmReset] = useState(false)
   const [quickSaveEnabled, setQuickSaveEnabled] = useState(true)
   const [quickSaveShortcut, setQuickSaveShortcut] = useState("Ctrl+Shift+S")
   const [hasCloudRemote, setHasCloudRemote] = useState(false)
+  const [showNotesInLibrary, setShowNotesInLibrary] = useState(() => {
+    return localStorage.getItem("luducard_show_notes_in_library") !== "false";
+  })
 
   const { loadGames } = useLibrary()
 
@@ -173,7 +178,7 @@ export function SettingsClient() {
     }
 
     if (isTauri) {
-      const id = override ? undefined : toast.loading("Salvando configuraÃ§Ãµes...");
+      const id = override ? undefined : toast.loading("Salvando configurações...");
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("save_settings", {
@@ -197,7 +202,7 @@ export function SettingsClient() {
           }
         });
         if (id) {
-          toast.success("ConfiguraÃ§Ãµes salvas no backend!", { id });
+          toast.success("Configurações salvas no backend!", { id });
         }
         // Reload settings to ensure React states are perfectly in sync
         const s = await invoke<{
@@ -236,12 +241,12 @@ export function SettingsClient() {
         if (id) {
           toast.error(`Erro ao salvar: ${err}`, { id });
         } else {
-          toast.error(`Erro ao salvar configuraÃ§Ã£o: ${err}`);
+          toast.error(`Erro ao salvar configuração: ${err}`);
         }
       }
     } else {
       if (!override) {
-        toast.success("[Mock] ConfiguraÃ§Ãµes salvas com sucesso!");
+        toast.success("[Mock] Configurações salvas com sucesso!");
       }
     }
   }
@@ -249,17 +254,37 @@ export function SettingsClient() {
   const handleTogglePortable = async (checked: boolean) => {
     if (!isTauri) {
       setPortable(checked);
-      toast.success(`[Mock] Modo PortÃ¡til ${checked ? "ativado" : "desativado"}!`);
+      toast.success(`[Mock] Modo Portátil ${checked ? "ativado" : "desativado"}!`);
       return;
     }
-    const id = toast.loading(checked ? "Ativando Modo PortÃ¡til e migrando dados..." : "Desativando Modo PortÃ¡til e migrando dados...");
+    const id = toast.loading(checked ? "Ativando Modo Portátil e migrando dados..." : "Desativando Modo Portátil e migrando dados...");
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("toggle_portable_mode", { enable: checked });
-      toast.success(checked ? "Modo PortÃ¡til ativado! ConfiguraÃ§Ãµes salvas na pasta do executÃ¡vel." : "Modo PortÃ¡til desativado!", { id });
+      toast.success(checked ? "Modo Portátil ativado! Configurações salvas na pasta do executável." : "Modo Portátil desativado!", { id });
       await loadSettings();
     } catch (err) {
-      toast.error(`Erro ao alterar Modo PortÃ¡til: ${err}`, { id });
+      toast.error(`Erro ao alterar Modo Portátil: ${err}`, { id });
+    }
+  }
+
+  const handleClearAppData = async () => {
+    localStorage.clear();
+    if (!isTauri) {
+      toast.success("[Mock] Todos os dados do aplicativo foram apagados! O aplicativo seria reiniciado.");
+      setConfirmReset(false);
+      return;
+    }
+    const id = toast.loading("Limpando dados do aplicativo...");
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("clear_app_data");
+      toast.success("Dados limpos! Reiniciando o aplicativo...", { id });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      toast.error(`Erro ao limpar dados: ${err}`, { id });
     }
   }
 
@@ -276,22 +301,23 @@ export function SettingsClient() {
         </TabsTrigger>
         <TabsTrigger value="notifications">
           <Bell data-icon="inline-start" />
-          {t("luducard-tab-notifications", "NotificaÃ§Ãµes")}
+          {t("luducard-tab-notifications", "Notificações")}
         </TabsTrigger>
       </TabsList>
 
       {/* General */}
       <TabsContent value="general">
-        <Card>
+        <div className="flex flex-col gap-6">
+          <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("luducard-general-preferences", "PreferÃªncias gerais")}</CardTitle>
-            <CardDescription>{t("luducard-general-preferences-desc", "Caminhos e comportamento bÃ¡sico do aplicativo.")}</CardDescription>
+            <CardTitle className="text-base">{t("luducard-general-preferences", "Preferências gerais")}</CardTitle>
+            <CardDescription>{t("luducard-general-preferences-desc", "Caminhos e comportamento básico do aplicativo.")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col">
             <SettingRow
               icon={Eye}
               title={t("luducard-file-watcher", "Monitor de Saves (File Watcher)")}
-              description={t("luducard-file-watcher-desc", "Monitora alteraÃ§Ãµes nos saves e faz backup automÃ¡tico quando o jogo fechar.")}
+              description={t("luducard-file-watcher-desc", "Monitora alterações nos saves e faz backup automático quando o jogo fechar.")}
               control={
                 <Switch
                   checked={fileWatcher}
@@ -312,7 +338,7 @@ export function SettingsClient() {
                   checked={startWithWindows}
                   onCheckedChange={(c) => {
                     handleSaveSettings({ startWithWindows: c });
-                    toast.message(c ? "InicializaÃ§Ã£o automÃ¡tica ligada" : "InicializaÃ§Ã£o automÃ¡tica desligada");
+                    toast.message(c ? "Inicialização automática ligada" : "Inicialização automática desligada");
                   }}
                 />
               }
@@ -321,13 +347,13 @@ export function SettingsClient() {
             <SettingRow
               icon={Settings2}
               title={t("luducard-system-tray", "Executar na Bandeja (System Tray)")}
-              description={t("luducard-system-tray-desc", "Minimiza o aplicativo perto do relÃ³gio ao invÃ©s de fechar, mantendo o monitoramento em segundo plano.")}
+              description={t("luducard-system-tray-desc", "Minimiza o aplicativo perto do relógio ao invés de fechar, mantendo o monitoramento em segundo plano.")}
               control={
                 <Switch
                   checked={systemTray}
                   onCheckedChange={(c) => {
                     handleSaveSettings({ systemTray: c });
-                    toast.message(c ? "ExecuÃ§Ã£o na bandeja ativada" : "ExecuÃ§Ã£o na bandeja desativada");
+                    toast.message(c ? "Execução na bandeja ativada" : "Execução na bandeja desativada");
                   }}
                 />
               }
@@ -335,8 +361,8 @@ export function SettingsClient() {
             <Separator />
             <SettingRow
               icon={HardDrive}
-              title={t("luducard-portable", "Modo PortÃ¡til (Portable Mode)")}
-              description={t("luducard-portable-desc", "Salva todas as configuraÃ§Ãµes, manifestos e backups na pasta do executÃ¡vel (ideal para pendrives).")}
+              title={t("luducard-portable", "Modo Portátil (Portable Mode)")}
+              description={t("luducard-portable-desc", "Salva todas as configurações, manifestos e backups na pasta do executável (ideal para pendrives).")}
               control={
                 <Switch
                   checked={portable}
@@ -346,8 +372,24 @@ export function SettingsClient() {
             />
             <Separator />
             <SettingRow
+              icon={Eye}
+              title={t("luducard-show-notes-in-library", "Exibir Diário de Bordo na Biblioteca")}
+              description={t("luducard-show-notes-in-library-desc", "Mostra o campo de anotações rápidas diretamente nos cartões e linhas da lista de jogos.")}
+              control={
+                <Switch
+                  checked={showNotesInLibrary}
+                  onCheckedChange={(c) => {
+                    setShowNotesInLibrary(c);
+                    localStorage.setItem("luducard_show_notes_in_library", String(c));
+                    toast.success(c ? "Diário de bordo visível na biblioteca" : "Diário de bordo ocultado na biblioteca");
+                  }}
+                />
+              }
+            />
+            <Separator />
+            <SettingRow
               icon={Zap}
-              title={t("luducard-quicksave", "Atalho de EmergÃªncia (Quick-Save Manual)")}
+              title={t("luducard-quicksave", "Atalho de Emergência (Quick-Save Manual)")}
               description={t("luducard-quicksave-desc", "Atalho global (Save State para PC) para fazer backup do jogo ativo em primeiro plano.")}
               control={
                 <div className="flex items-center gap-3">
@@ -394,14 +436,14 @@ export function SettingsClient() {
                     readOnly
                     placeholder={t("luducard-quicksave-press-keys", "Pressione as teclas...")}
                     className="w-36 text-center font-mono text-xs cursor-pointer bg-muted/30 focus:bg-background h-8"
-                    title="Clique e pressione a combinaÃ§Ã£o de teclas desejada"
+                    title="Clique e pressione a combinação de teclas desejada"
                   />
                   <Switch
                     checked={quickSaveEnabled}
                     onCheckedChange={(c) => {
                       setQuickSaveEnabled(c);
                       handleSaveSettings({ quickSaveEnabled: c });
-                      toast.message(c ? "Atalho de emergÃªncia ativado" : "Atalho de emergÃªncia desativado");
+                      toast.message(c ? "Atalho de emergência ativado" : "Atalho de emergência desativado");
                     }}
                   />
                 </div>
@@ -411,7 +453,7 @@ export function SettingsClient() {
             <SettingRow
               icon={Monitor}
               title={t("luducard-theme", "Tema")}
-              description={t("luducard-theme-desc", "AparÃªncia da interface do aplicativo.")}
+              description={t("luducard-theme-desc", "Aparência da interface do aplicativo.")}
               control={
                 <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
                   <SelectTrigger className="w-32">
@@ -437,19 +479,19 @@ export function SettingsClient() {
                   <SelectTrigger className="w-40">
                     <SelectValue>
                       {language === "en-US" && "English"}
-                      {language === "pt-BR" && "PortuguÃªs (Brasil)"}
-                      {language === "es-ES" && "EspaÃ±ol"}
-                      {language === "ru-RU" && "Ð ÑƒÑÑÐºÐ¸Ð¹"}
-                      {language === "zh-Hans" && "ä¸­æ–‡ (ç®€ä½“)"}
+                      {language === "pt-BR" && "Português (Brasil)"}
+                      {language === "es-ES" && "Español"}
+                      {language === "ru-RU" && "Русский"}
+                      {language === "zh-Hans" && "中文 (简体)"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value="en-US">English</SelectItem>
-                      <SelectItem value="pt-BR">PortuguÃªs (Brasil)</SelectItem>
-                      <SelectItem value="es-ES">EspaÃ±ol</SelectItem>
-                      <SelectItem value="ru-RU">Ð ÑƒÑÑÐºÐ¸Ð¹</SelectItem>
-                      <SelectItem value="zh-Hans">ä¸­æ–‡ (ç®€ä½“)</SelectItem>
+                      <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                      <SelectItem value="es-ES">Español</SelectItem>
+                      <SelectItem value="ru-RU">Русский</SelectItem>
+                      <SelectItem value="zh-Hans">中文 (简体)</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -461,9 +503,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <HardDrive className="size-4 text-primary" />
-                {t("luducard-backup-dir", "DiretÃ³rio de Backup")}
+                {t("luducard-backup-dir", "Diretório de Backup")}
               </span>
-              <span className="text-xs text-muted-foreground">{t("luducard-backup-dir-desc", "Onde os saves dos seus jogos serÃ£o guardados localmente.")}</span>
+              <span className="text-xs text-muted-foreground">{t("luducard-backup-dir-desc", "Onde os saves dos seus jogos serão guardados localmente.")}</span>
               <Input
                 value={backupPath}
                 onChange={(e) => setBackupPath(e.target.value)}
@@ -476,9 +518,9 @@ export function SettingsClient() {
             <div className="flex flex-col gap-2.5 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <FileCode className="size-4 text-primary" />
-                {t("luducard-rclone-path", "Caminho do executÃ¡vel Rclone")}
+                {t("luducard-rclone-path", "Caminho do executável Rclone")}
               </span>
-              <span className="text-xs text-muted-foreground">{t("luducard-rclone-path-desc", "Caminho para o executÃ¡vel rclone usado no envio para nuvem.")}</span>
+              <span className="text-xs text-muted-foreground">{t("luducard-rclone-path-desc", "Caminho para o executável rclone usado no envio para nuvem.")}</span>
               <Input
                 value={rclonePath}
                 onChange={(e) => setRclonePath(e.target.value)}
@@ -519,18 +561,67 @@ export function SettingsClient() {
 
             <Separator />
             <div className="flex justify-end pt-4">
-              <Button onClick={() => handleSaveSettings()}>{t("luducard-btn-save-settings", "Salvar ConfiguraÃ§Ãµes")}</Button>
+              <Button onClick={() => handleSaveSettings()}>{t("luducard-btn-save-settings", "Salvar Configurações")}</Button>
             </div>
           </CardContent>
         </Card>
-      </TabsContent>
+
+        <Card className="border-red-500/20 bg-red-500/[0.02]">
+          <CardHeader>
+            <CardTitle className="text-base text-red-400 flex items-center gap-2">
+              <AlertTriangle className="size-4 text-red-500" />
+              {t("luducard-danger-zone", "Zona de Perigo")}
+            </CardTitle>
+            <CardDescription>
+              {t("luducard-danger-zone-desc", "Ações destrutivas que não podem ser desfeitas.")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/[0.05] p-3 text-xs text-red-300 flex flex-col gap-1 leading-relaxed">
+              <span className="font-semibold text-red-200">
+                {t("luducard-reset-warning-title", "AVISO IMPORTANTE:")}
+              </span>
+              <span>
+                {t("luducard-reset-warning-desc", "Isso apagará permanentemente todas as suas configurações, caminhos de busca personalizados, histórico de escaneamento de jogos, credenciais de nuvem e perfis de save criados. Suas pastas de backups originais no disco não serão excluídas. O aplicativo será reiniciado após a limpeza.")}
+              </span>
+            </div>
+            
+            <div className="flex justify-start">
+              {!confirmReset ? (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setConfirmReset(true)}
+                >
+                  {t("luducard-btn-reset-app", "Limpar Todos os Dados")}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleClearAppData}
+                  >
+                    {t("luducard-btn-reset-confirm", "Sim, Confirmar Exclusão")}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setConfirmReset(false)}
+                  >
+                    {t("luducard-btn-reset-cancel", "Cancelar")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </TabsContent>
 
       {/* Schedule */}
       <TabsContent value="schedule">
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("luducard-schedule-auto-routine", "Rotina de saves automÃ¡ticos")}</CardTitle>
+              <CardTitle className="text-base">{t("luducard-schedule-auto-routine", "Rotina de saves automáticos")}</CardTitle>
               <CardDescription>{t("luducard-schedule-auto-routine-desc", "Defina quando os backups acontecem.")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
@@ -589,7 +680,7 @@ export function SettingsClient() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Clock className="size-4 text-primary" />
-                    <span className="text-sm">{t("luducard-schedule-at-time", "No horÃ¡rio")}</span>
+                    <span className="text-sm">{t("luducard-schedule-at-time", "No horário")}</span>
                     <Select defaultValue="22">
                       <SelectTrigger className="w-24">
                         <SelectValue />
@@ -613,7 +704,7 @@ export function SettingsClient() {
             <CardHeader>
               <CardTitle className="text-base">{t("luducard-schedule-games-in-schedule", "Jogos no cronograma")}</CardTitle>
               <CardDescription>
-                {t("luducard-schedule-games-in-schedule-desc", "Selecione quais jogos seguem esta rotina automÃ¡tica.")}
+                {t("luducard-schedule-games-in-schedule-desc", "Selecione quais jogos seguem esta rotina automática.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -677,15 +768,15 @@ export function SettingsClient() {
       <TabsContent value="notifications">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("luducard-notification-alerts", "Alertas e notificaÃ§Ãµes")}</CardTitle>
-            <CardDescription>{t("luducard-notification-alerts-desc", "Como vocÃª quer ser avisado sobre os backups.")}</CardDescription>
+            <CardTitle className="text-base">{t("luducard-notification-alerts", "Alertas e notificações")}</CardTitle>
+            <CardDescription>{t("luducard-notification-alerts-desc", "Como você quer ser avisado sobre os backups.")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col">
             <SettingRow
               icon={Bell}
-              title={t("luducard-notification-windows", "NotificaÃ§Ãµes do Windows")}
-              description={t("luducard-notification-windows-desc", "Avisa quando um backup Ã© concluÃ­do com sucesso.")}
-              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? t("luducard-notification-toast-enabled", "NotificaÃ§Ãµes ligadas") : t("luducard-notification-toast-disabled", "NotificaÃ§Ãµes desligadas"))} />}
+              title={t("luducard-notification-windows", "Notificações do Windows")}
+              description={t("luducard-notification-windows-desc", "Avisa quando um backup é concluído com sucesso.")}
+              control={<Switch defaultChecked onCheckedChange={(c) => toast.message(c ? t("luducard-notification-toast-enabled", "Notificações ligadas") : t("luducard-notification-toast-disabled", "Notificações desligadas"))} />}
             />
             <Separator />
             <SettingRow

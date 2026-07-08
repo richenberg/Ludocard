@@ -4539,7 +4539,7 @@ pub async fn clear_app_data(app: tauri::AppHandle) -> Result<(), String> {
                 backup_paths.push(path);
             }
             config.roots.clear();
-            let _ = config.save();
+            config.save();
         }
         if let Some(home) = dirs::home_dir() {
             backup_paths.push(home.join("ludusavi-backup"));

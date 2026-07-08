@@ -706,17 +706,15 @@ pub fn heal_custom_game_paths() -> Result<(), String> {
 
 fn load_titles_cache(app_data_dir: &Path) -> serde_json::Value {
     let path = app_data_dir.join("emulator_titles_cache.json");
-    if path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str(&content) {
-                return json;
-            }
-        }
-    }
-    serde_json::json!({
-        "switch": {},
-        "wiiu": {}
-    })
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
+        .unwrap_or_else(|| {
+            serde_json::json!({
+                "switch": {},
+                "wiiu": {}
+            })
+        })
 }
 
 fn save_titles_cache(app_data_dir: &Path, cache: &serde_json::Value) {

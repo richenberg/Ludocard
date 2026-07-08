@@ -25,8 +25,8 @@ O projeto estÃ¡ estruturado como um workspace Rust que contÃ©m a biblioteca 
 Ajustes finais para tornar o aplicativo usÃ¡vel como um executÃ¡vel de desktop independente.
 
 - [x] **Trocar BrowserRouter por HashRouter**: Alterar em `ui/src/main.tsx` para evitar que o roteamento quebre quando o aplicativo carregar a partir dos arquivos locais integrados no `.exe`.
-- [x] **Verificar a Interface**: Testar a navegaÃ§Ã£o de todas as abas e salvar configuraÃ§Ãµes reais para garantir que o backend reflita as alteraÃ§Ãµes nos arquivos `.yaml` locais do Ludosavi.
-- [x] **GeraÃ§Ã£o do Standalone (Luducard.exe)**: Rodar a compilaÃ§Ã£o final de produÃ§Ã£o (`tauri build`) para gerar o executÃ¡vel final que roda de forma independente sem o terminal do Node.js.
+- [x] **Verificar a Interface**: Testar a Navegação de todas as abas e salvar configurações reais para garantir que o backend reflita as alterações nos arquivos `.yaml` locais do Ludosavi.
+- [x] **Geração do Standalone (Luducard.exe)**: Rodar a compilação final de produção (`tauri build`) para gerar o executável final que roda de forma independente sem o terminal do Node.js.
 
 ---
 
@@ -133,7 +133,7 @@ Dessa forma, o seu aplicativo fica 100% seguro, leve, e nenhuma senha master sua
   5. **ðŸ–¥ï¸ Visual e InteraÃ§Ãµes**:
      - **Detalhes de Saves Locais**: Permitir clicar nos cards da timeline local para abrir um modal detalhado, contendo uma Ã¡rea de texto editÃ¡vel para *"Notas de Campanha / Progresso"* salvas localmente no `luducard.json`.
      - **Save Share Hub**: Cards clicÃ¡veis para exibir descriÃ§Ã£o completa (sem quebras bruscas), tags fixas com tooltips explicando cada uma (ex: `100%`, `DLC1` etc.) e specs de hardware.
-     - **Aba de Apoio ao Projeto (`/support`)**: Adicionar um novo item de navegaÃ§Ã£o lateral para uma pÃ¡gina dedicada de apoio financeiro, explicando os custos de infraestrutura de nuvem (R2, banco de dados Supabase) e fornecendo botÃµes de apoio via Itch.io e PIX (via QR code ou link).
+     - **Aba de Apoio ao Projeto (`/support`)**: Adicionar um novo item de Navegação lateral para uma pÃ¡gina dedicada de apoio financeiro, explicando os custos de infraestrutura de nuvem (R2, banco de dados Supabase) e fornecendo botÃµes de apoio via Itch.io e PIX (via QR code ou link).
 
 
   6. **ðŸ›¡ï¸ Medidas de SeguranÃ§a para o CÃ³digo Open Source**:

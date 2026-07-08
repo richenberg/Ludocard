@@ -71,6 +71,8 @@ pub struct FrontendSettings {
     #[serde(default)]
     pub has_cloud_remote: bool,
     #[serde(default)]
+    pub cloud_email: Option<String>,
+    #[serde(default)]
     pub quick_save_enabled: bool,
     #[serde(default)]
     pub quick_save_shortcut: String,
@@ -783,6 +785,7 @@ fn get_latest_modified_time(save_path: &str) -> Option<String> {
     })
 }
 
+#[allow(dead_code)]
 pub fn load_backup_note(app_data_dir: &Path, game_id: &str, backup_id: &str) -> Option<String> {
     let config_path = app_data_dir.join("luducard.json");
     let content = std::fs::read_to_string(&config_path).ok()?;
@@ -796,6 +799,7 @@ pub fn load_backup_note(app_data_dir: &Path, game_id: &str, backup_id: &str) -> 
     Some(note)
 }
 
+#[allow(dead_code)]
 pub fn load_campaign_note(app_data_dir: &Path, game_id: &str) -> Option<String> {
     let config_path = app_data_dir.join("luducard.json");
     let content = std::fs::read_to_string(&config_path).ok()?;
@@ -812,6 +816,7 @@ fn build_frontend_game(
     scan_game: Option<&ApiGame>,
     backup_game: Option<&ApiGame>,
     cached_scan: Option<&CachedScanInfo>,
+    luducard_json: Option<&serde_json::Value>,
 ) -> FrontendGame {
     let display_title = api.config.display_name(name).to_string();
     let slug = slugify(name);
@@ -841,7 +846,13 @@ fn build_frontend_game(
             let date_str = local_time.format("%d %b %Y").to_string();
             let time_str = local_time.format("%H:%M").to_string();
 
-            let note = app_data_dir.and_then(|dir| load_backup_note(dir, &slug, &b.name));
+            let note = luducard_json.and_then(|json| {
+                json.get("backup_notes")?
+                    .get(&slug)?
+                    .get(&b.name)?
+                    .as_str()
+                    .map(|s| s.to_string())
+            });
 
             backups_list.push(FrontendBackupVersion {
                 id: b.name.clone(),
@@ -938,7 +949,7 @@ fn build_frontend_game(
         backup_path = path.clone();
     }
 
-    let notes = app_data_dir.and_then(|dir| load_campaign_note(dir, &slug));
+    let notes = luducard_json.and_then(|json| json.get("campaign_notes")?.get(&slug)?.as_str().map(|s| s.to_string()));
 
     FrontendGame {
         id: slug,
@@ -981,6 +992,12 @@ pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Strin
             *cache = load_scan_cache(dir);
         }
 
+        let luducard_json: Option<serde_json::Value> = app_data_dir.as_ref().and_then(|dir| {
+            let config_path = dir.join("luducard.json");
+            let content = std::fs::read_to_string(&config_path).ok()?;
+            serde_json::from_str(&content).ok()
+        });
+
         // Collect all known game names from backups + scan cache + custom games
         let mut all_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         for name in backups_output.games.keys() {
@@ -1006,6 +1023,7 @@ pub async fn get_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Strin
                 None, // no live scan data
                 backup_game,
                 cached_scan,
+                luducard_json.as_ref(),
             );
 
             if fg.cover == "/placeholder.svg" {
@@ -1052,7 +1070,7 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
             let mut all_saves = Vec::new();
             for emu_path in emulators {
                 if let Some(emu_name) = crate::emulator::identify_emulator(Path::new(&emu_path)) {
-                    let detected = crate::emulator::scan_emulator_saves(&emu_name, &emu_path);
+                    let detected = crate::emulator::scan_emulator_saves(&emu_name, &emu_path, Some(dir.clone()));
                     all_saves.extend(detected);
                 }
             }
@@ -1106,6 +1124,12 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
             }
         }
 
+        let luducard_json: Option<serde_json::Value> = app_data_dir.as_ref().and_then(|dir| {
+            let config_path = dir.join("luducard.json");
+            let content = std::fs::read_to_string(&config_path).ok()?;
+            serde_json::from_str(&content).ok()
+        });
+
         // Build combined results
         let mut all_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         for name in scan_output.games.keys() {
@@ -1126,7 +1150,15 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
             let scan_game = scan_output.games.get(name);
             let backup_game = backups_output.games.get(name);
             let cached_scan = cache.get(name);
-            let fg = build_frontend_game(app_data_dir.as_deref(), &api, name, scan_game, backup_game, cached_scan);
+            let fg = build_frontend_game(
+                app_data_dir.as_deref(),
+                &api,
+                name,
+                scan_game,
+                backup_game,
+                cached_scan,
+                luducard_json.as_ref(),
+            );
 
             if fg.cover == "/placeholder.svg" {
                 let mut steam_id = None;
@@ -1199,8 +1231,21 @@ pub async fn get_game_details(app: tauri::AppHandle, game_title: String) -> Resu
         let backup_game = backups_output.as_ref().and_then(|o| o.games.get(&name));
 
         let app_data_dir = app.path().app_data_dir().ok();
+        let luducard_json: Option<serde_json::Value> = app_data_dir.as_ref().and_then(|dir| {
+            let config_path = dir.join("luducard.json");
+            let content = std::fs::read_to_string(&config_path).ok()?;
+            serde_json::from_str(&content).ok()
+        });
 
-        let fg = build_frontend_game(app_data_dir.as_deref(), &api, &name, scan_game, backup_game, None);
+        let fg = build_frontend_game(
+            app_data_dir.as_deref(),
+            &api,
+            &name,
+            scan_game,
+            backup_game,
+            None,
+            luducard_json.as_ref(),
+        );
 
         if fg.cover == "/placeholder.svg" {
             let mut steam_id = None;
@@ -1455,6 +1500,12 @@ pub async fn get_settings(app: tauri::AppHandle) -> Result<FrontendSettings, Str
                 .to_string(),
             has_set_language: api.config.has_set_language,
             has_cloud_remote: api.config.cloud.remote.is_some(),
+            cloud_email: app.path().app_data_dir().ok().and_then(|dir| {
+                let config_path = dir.join("luducard.json");
+                let content = std::fs::read_to_string(&config_path).ok()?;
+                let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+                json.get("cloud_email").and_then(|v| v.as_str()).map(|s| s.to_string())
+            }),
             quick_save_enabled,
             quick_save_shortcut,
         })
@@ -1493,6 +1544,20 @@ pub async fn save_settings(app: tauri::AppHandle, settings: FrontendSettings) ->
             save_system_tray_setting(&dir, system_tray_enabled);
             save_supabase_settings(&dir, &settings.supabase_url, &settings.supabase_anon_key);
             crate::hotkey::save_quick_save_settings(&dir, settings.quick_save_enabled, &settings.quick_save_shortcut);
+
+            // Save cloud_email to luducard.json
+            let config_path = dir.join("luducard.json");
+            let mut json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+                serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+            } else {
+                serde_json::json!({})
+            };
+            if let Some(ref email) = settings.cloud_email {
+                json["cloud_email"] = serde_json::json!(email);
+            } else {
+                json["cloud_email"] = serde_json::Value::Null;
+            }
+            let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default());
         }
 
         // Configure autostart
@@ -1544,23 +1609,31 @@ pub async fn save_language(language: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn get_roots() -> Result<Vec<FrontendRoot>, String> {
     tokio::task::spawn_blocking(|| {
-        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
-
-        // Autodetect roots if the list is empty
-        if api.config.roots.is_empty() {
-            let detected = autodetect_launchers();
-            if !detected.is_empty() {
-                for (path, store) in detected {
-                    api.config.roots.push(Root::new(path, store));
-                }
-                api.config.save();
-            }
-        }
+        let api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
         let mut roots = Vec::new();
         for (i, r) in api.config.roots.iter().enumerate() {
             roots.push(FrontendRoot {
                 id: format!("r{}", i),
+                path: r.path().raw().to_string(),
+                store: format!("{:?}", r.store()),
+            });
+        }
+        Ok(roots)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn detect_installed_launchers() -> Result<Vec<FrontendRoot>, String> {
+    tokio::task::spawn_blocking(|| {
+        let api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        let missing = api.config.find_missing_roots();
+        let mut roots = Vec::new();
+        for (i, r) in missing.iter().enumerate() {
+            roots.push(FrontendRoot {
+                id: format!("detected_r{}", i),
                 path: r.path().raw().to_string(),
                 store: format!("{:?}", r.store()),
             });
@@ -1665,56 +1738,6 @@ pub async fn open_game_folder(game_title: String, folder_type: String, save_path
     .map_err(|e| e.to_string())?
 }
 
-fn autodetect_launchers() -> Vec<(StrictPath, Store)> {
-    #[allow(unused_mut)]
-    let mut detected = Vec::new();
-
-    #[cfg(target_os = "windows")]
-    {
-        use winreg::RegKey;
-        use winreg::enums::*;
-
-        // 1. Steam
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        if let Ok(steam_key) = hkcu.open_subkey("Software\\Valve\\Steam")
-            && let Ok(steam_path) = steam_key.get_value::<String, _>("SteamPath")
-        {
-            let path = Path::new(&steam_path).join("steamapps").join("common");
-            if path.exists() {
-                detected.push((StrictPath::new(path.to_string_lossy().to_string()), Store::Steam));
-            }
-        }
-
-        // 2. GOG Galaxy
-        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-        if let Ok(gog_key) = hklm.open_subkey("SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient\\paths")
-            && let Ok(gog_path) = gog_key.get_value::<String, _>("client")
-        {
-            let path = Path::new(&gog_path);
-            if path.exists() {
-                detected.push((StrictPath::new(path.to_string_lossy().to_string()), Store::Gog));
-            }
-        }
-
-        for path in &["C:\\Program Files (x86)\\GOG Galaxy\\Games", "C:\\GOG Games"] {
-            let p = Path::new(path);
-            if p.exists() {
-                detected.push((StrictPath::new(p.to_string_lossy().to_string()), Store::Gog));
-            }
-        }
-
-        // 3. Epic Games
-        for path in &["C:\\Program Files\\Epic Games", "C:\\Program Files (x86)\\Epic Games"] {
-            let p = Path::new(path);
-            if p.exists() {
-                detected.push((StrictPath::new(p.to_string_lossy().to_string()), Store::Epic));
-            }
-        }
-    }
-
-    detected
-}
-
 #[derive(serde::Serialize)]
 pub struct AddRootResult {
     pub success: bool,
@@ -1725,7 +1748,8 @@ pub struct AddRootResult {
 #[tauri::command]
 pub async fn add_root(path: String) -> Result<AddRootResult, String> {
     tokio::task::spawn_blocking(move || {
-        let path_buf = PathBuf::from(&path);
+        let normalized_path = path.replace('\\', "/");
+        let path_buf = PathBuf::from(&normalized_path);
 
         if let Some(emu_name) = crate::emulator::identify_emulator(&path_buf) {
             return Ok(AddRootResult {
@@ -1736,7 +1760,7 @@ pub async fn add_root(path: String) -> Result<AddRootResult, String> {
         }
 
         let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
-        let strict_path = StrictPath::new(path);
+        let strict_path = StrictPath::new(normalized_path);
         let new_root = Root::new(strict_path, Store::Other);
         api.config.roots.push(new_root);
         api.config.save();
@@ -1754,8 +1778,9 @@ pub async fn add_root(path: String) -> Result<AddRootResult, String> {
 #[tauri::command]
 pub async fn remove_root(path: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
+        let normalized_path = path.replace('\\', "/");
         let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
-        api.config.roots.retain(|r| r.path().raw() != path);
+        api.config.roots.retain(|r| r.path().raw() != normalized_path);
         api.config.save();
         Ok(())
     })
@@ -2466,7 +2491,7 @@ pub async fn export_temp_luducard_backup(
             let is_match = orig_str.starts_with(&live_str)
                 || (cfg!(target_os = "windows") && orig_str.to_lowercase().starts_with(&live_str.to_lowercase()));
             let relative_path_str = if is_match {
-                let mut rel = &orig_str[live_str.len()...];
+                let mut rel = &orig_str[live_str.len()..];
                 if rel.starts_with('/') {
                     rel = &rel[1..];
                 }
@@ -3406,7 +3431,7 @@ pub async fn add_emulator(app: tauri::AppHandle, path: String) -> Result<usize, 
         save_emulators_setting(&app_data_dir, &emulators);
 
         // Run initial scan for this emulator
-        let detected = crate::emulator::scan_emulator_saves(&emu_name, &path);
+        let detected = crate::emulator::scan_emulator_saves(&emu_name, &path, Some(app_data_dir.clone()));
         let count = detected.len();
         if !detected.is_empty() {
             crate::emulator::register_emulator_saves(detected)?;
@@ -3490,13 +3515,26 @@ pub async fn download_rclone(app: tauri::AppHandle) -> Result<String, String> {
             "https://downloads.rclone.org/v1.68.0/rclone-v1.68.0-linux-amd64.zip"
         };
 
-        // Download ZIP
-        let response = reqwest::blocking::get(url).map_err(|e| format!("Download error: {}", e))?;
-        let bytes = response.bytes().map_err(|e| format!("Failed to read bytes: {}", e))?;
+        // Download ZIP via streaming to a temporary file
+        let client = reqwest::blocking::Client::builder()
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .build()
+            .map_err(|e| format!("Failed to build client: {}", e))?;
+        let mut response = client.get(url).send().map_err(|e| format!("Download error: {}", e))?;
+        if !response.status().is_success() {
+            return Err(format!("Server returned error status: {}", response.status()));
+        }
 
-        // Extract ZIP
-        let cursor = std::io::Cursor::new(bytes.to_vec());
-        let mut archive = zip::ZipArchive::new(cursor).map_err(|e| format!("Failed to parse zip: {}", e))?;
+        let temp_zip_path = rclone_dir.join("temp_rclone.zip");
+        let mut temp_file = std::fs::File::create(&temp_zip_path)
+            .map_err(|e| format!("Failed to create temporary zip file: {}", e))?;
+        std::io::copy(&mut response, &mut temp_file)
+            .map_err(|e| format!("Failed to write zip file: {}", e))?;
+
+        // Extract ZIP from file
+        let zip_file = std::fs::File::open(&temp_zip_path)
+            .map_err(|e| format!("Failed to open downloaded zip: {}", e))?;
+        let mut archive = zip::ZipArchive::new(zip_file).map_err(|e| format!("Failed to parse zip: {}", e))?;
 
         let exe_name = if cfg!(target_os = "windows") {
             "rclone.exe"
@@ -3520,6 +3558,9 @@ pub async fn download_rclone(app: tauri::AppHandle) -> Result<String, String> {
                 break;
             }
         }
+
+        // Delete temporary zip
+        let _ = std::fs::remove_file(&temp_zip_path);
 
         if !found_exe {
             return Err("rclone executable not found inside downloaded archive".to_string());
@@ -3549,7 +3590,7 @@ pub async fn download_rclone(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn configure_cloud_remote(_app: tauri::AppHandle, provider: String, email: String) -> Result<(), String> {
+pub async fn configure_cloud_remote(app: tauri::AppHandle, provider: String, email: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
@@ -3576,10 +3617,45 @@ pub async fn configure_cloud_remote(_app: tauri::AppHandle, provider: String, em
             .configure_remote()
             .map_err(|e| format!("Falha ao configurar remoto no Rclone: {:?}", e))?;
 
+        // Try to fetch the authenticated user's email from the provider API
+        let fetched_email = fetch_cloud_email(&api.config.apps.rclone.path, &remote, &api.config.apps.rclone.arguments);
+
         // Update config
         api.config.cloud.remote = Some(remote);
-        let sanitized_email = email.replace(|c: char| !c.is_alphanumeric() && c != '@' && c != '.', "_");
-        api.config.cloud.path = format!("luducard-backup/{}", sanitized_email);
+
+        let final_email = fetched_email.clone().or_else(|| {
+            if !email.is_empty() && email != "cloud_user" {
+                Some(email.clone())
+            } else {
+                None
+            }
+        });
+
+        // Save cloud_email to luducard.json
+        if let Ok(dir) = app.path().app_data_dir() {
+            let config_path = dir.join("luducard.json");
+            let mut json: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&config_path) {
+                serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+            } else {
+                serde_json::json!({})
+            };
+            if let Some(ref e) = final_email {
+                json["cloud_email"] = serde_json::json!(e);
+            } else {
+                json["cloud_email"] = serde_json::Value::Null;
+            }
+            let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&json).unwrap_or_default());
+        }
+
+        if !email.is_empty() && email != "cloud_user" {
+            let sanitized_email = email.replace(|c: char| !c.is_alphanumeric() && c != '@' && c != '.', "_");
+            api.config.cloud.path = format!("luducard-backup/{}", sanitized_email);
+        } else if let Some(ref e) = final_email {
+            let sanitized_email = e.replace(|c: char| !c.is_alphanumeric() && c != '@' && c != '.', "_");
+            api.config.cloud.path = format!("luducard-backup/{}", sanitized_email);
+        } else {
+            api.config.cloud.path = "luducard-backup".to_string();
+        }
         api.config.cloud.synchronize = true;
 
         api.config.save();
@@ -3587,6 +3663,95 @@ pub async fn configure_cloud_remote(_app: tauri::AppHandle, provider: String, em
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Fetches the authenticated user's email by extracting the access_token from rclone config
+/// and querying the provider's API.
+fn fetch_cloud_email(
+    rclone_path: &StrictPath,
+    remote: &ludusavi::cloud::Remote,
+    rclone_arguments: &str,
+) -> Option<String> {
+    // Run `rclone config dump` to get all remote configs as JSON
+    let mut command = std::process::Command::new(rclone_path.raw());
+    command.args(["config", "dump"]);
+
+    if !rclone_arguments.is_empty() {
+        if let Some(parts) = shlex::split(rclone_arguments) {
+            command.args(parts);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        log::warn!("rclone config dump failed: {}", String::from_utf8_lossy(&output.stderr));
+        return None;
+    }
+
+    let config_json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    let remote_config = config_json.get(remote.id())?;
+    let token_str = remote_config.get("token")?.as_str()?;
+    let token_json: serde_json::Value = serde_json::from_str(token_str).ok()?;
+    let access_token = token_json.get("access_token")?.as_str()?;
+
+    // Query provider API based on remote type
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .ok()?;
+
+    let email = match remote {
+        ludusavi::cloud::Remote::GoogleDrive { .. } => {
+            let resp = client
+                .get("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)")
+                .bearer_auth(access_token)
+                .send()
+                .ok()?;
+            let json: serde_json::Value = resp.json().ok()?;
+            json.get("user")?.get("emailAddress")?.as_str().map(|s| s.to_string())
+        }
+        ludusavi::cloud::Remote::OneDrive { .. } => {
+            let resp = client
+                .get("https://graph.microsoft.com/v1.0/me")
+                .bearer_auth(access_token)
+                .send()
+                .ok()?;
+            let json: serde_json::Value = resp.json().ok()?;
+            json.get("userPrincipalName")
+                .or_else(|| json.get("mail"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        }
+        ludusavi::cloud::Remote::Dropbox { .. } => {
+            let resp = client
+                .post("https://api.dropboxapi.com/2/users/get_current_account")
+                .bearer_auth(access_token)
+                .header("Content-Type", "application/json")
+                .body("null")
+                .send()
+                .ok()?;
+            let json: serde_json::Value = resp.json().ok()?;
+            json.get("email")?.as_str().map(|s| s.to_string())
+        }
+        _ => {
+            log::info!("Email fetch not supported for this provider type");
+            None
+        }
+    };
+
+    if let Some(ref e) = email {
+        log::info!("Successfully fetched cloud email: {}", e);
+    } else {
+        log::warn!("Could not fetch cloud email from provider API");
+    }
+
+    email
 }
 
 #[tauri::command]
@@ -4357,6 +4522,98 @@ pub async fn delete_save_profile(app: tauri::AppHandle, game_id: String, profile
             std::fs::remove_dir_all(&profile_dir)
                 .map_err(|e| format!("Falha ao remover diretório do perfil de save: {}", e))?;
         }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_app_data(app: tauri::AppHandle) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        // 0. Load config to find backup paths AND clear roots in memory first
+        let mut backup_paths = Vec::new();
+        if let Ok(mut config) = ludusavi::resource::config::Config::load() {
+            if let Ok(path) = config.backup.path.as_std_path_buf() {
+                backup_paths.push(path);
+            }
+            config.roots.clear();
+            let _ = config.save();
+        }
+        if let Some(home) = dirs::home_dir() {
+            backup_paths.push(home.join("ludusavi-backup"));
+            backup_paths.push(home.join("luducard-backup"));
+            backup_paths.push(home.join("luducard-backups"));
+        }
+        let app_dir = match ludusavi::prelude::app_dir().as_std_path_buf() {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!("Failed to get app_dir path: {:?}", e);
+                return Err(format!("Falha ao obter o diretório do aplicativo: {}", e));
+            }
+        };
+        backup_paths.push(app_dir.join("luducard-backups"));
+        backup_paths.push(app_dir.join("luducard-backup"));
+
+        for path in backup_paths {
+            if path.exists() && path.is_dir() {
+                let mut index = 1;
+                let mut new_path = path.clone();
+                new_path.set_extension(format!("bak{}", index));
+                while new_path.exists() {
+                    index += 1;
+                    new_path.set_extension(format!("bak{}", index));
+                }
+                let _ = std::fs::rename(&path, &new_path);
+            }
+        }
+
+        // 1. Clear core app settings / cache
+        // NOTE: config.yaml is intentionally NOT deleted here because we already
+        // saved it with cleared roots above. If config.yaml is missing on next load,
+        // ResourceFile::initialize() calls add_common_roots() which re-detects all
+        // platform folders automatically, undoing the reset.
+        let files = ["cache.yaml", "manifest.yaml", "config.invalid.yaml"];
+        for file in &files {
+            let file_path = app_dir.join(file);
+            if file_path.exists() {
+                let _ = std::fs::remove_file(&file_path);
+            }
+        }
+
+        // 2. Clear tauri-specific app data directory settings, scan cache, save profiles, and covers
+        if let Ok(dir) = app.path().app_data_dir() {
+            let tauri_config = dir.join("luducard.json");
+            if tauri_config.exists() {
+                let _ = std::fs::remove_file(&tauri_config);
+            }
+
+            let scan_cache = dir.join("scan_cache.json");
+            if scan_cache.exists() {
+                let _ = std::fs::remove_file(&scan_cache);
+            }
+
+            let save_profiles_dir = dir.join("save_profiles");
+            if save_profiles_dir.exists() {
+                let _ = std::fs::remove_dir_all(&save_profiles_dir);
+            }
+
+            let covers_dir = dir.join("covers");
+            if covers_dir.exists() {
+                let _ = std::fs::remove_dir_all(&covers_dir);
+            }
+        }
+
+        // 3. Restart the app after 500ms to allow response to return
+        #[cfg(not(debug_assertions))]
+        {
+            let app_clone = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                app_clone.restart();
+            });
+        }
+
         Ok(())
     })
     .await

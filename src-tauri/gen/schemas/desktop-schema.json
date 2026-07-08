@@ -387,10 +387,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Allow Ludocard custom commands",
+          "description": "Allow Luducard custom commands",
           "type": "string",
-          "const": "allow-ludocard-commands",
-          "markdownDescription": "Allow Ludocard custom commands"
+          "const": "allow-luducard-commands",
+          "markdownDescription": "Allow Luducard custom commands"
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

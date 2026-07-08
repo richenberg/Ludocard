@@ -12,6 +12,7 @@ commands.allow = [
   "save_language",
   "get_translations",
   "get_roots",
+  "detect_installed_launchers",
   "add_root",
   "remove_root",
   "select_folder",
@@ -53,5 +54,7 @@ commands.allow = [
   "list_save_profiles",
   "create_save_profile",
   "switch_save_profile",
-  "delete_save_profile"
+  "delete_save_profile",
+  "check_cloud_conflict",
+  "clear_app_data"
 ]

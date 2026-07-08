@@ -46,6 +46,12 @@ export function ScanClient() {
   const [hasResults, setHasResults] = useState(false)
   const [folders, setFolders] = useState<{ id: string; path: string; type: string; games: number }[]>([])
   const [emulators, setEmulators] = useState<FrontendEmulator[]>([])
+  const [foldersLoaded, setFoldersLoaded] = useState(false)
+  const [emulatorsLoaded, setEmulatorsLoaded] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
+  const [detectedLaunchers, setDetectedLaunchers] = useState<{ path: string; store: string; selected: boolean }[]>([])
+  const [detecting, setDetecting] = useState(false)
+  const [scanAfterWizard, setScanAfterWizard] = useState(true)
   
   // Scanned games are games that are not backed up or have pending changes
   const scanResultsList = games.filter(g => g.status === "never" || g.status === "pending")
@@ -62,6 +68,7 @@ export function ScanClient() {
   const loadRoots = async () => {
     if (!isTauri) {
       setFolders([]);
+      setFoldersLoaded(true);
       return;
     }
     try {
@@ -71,18 +78,85 @@ export function ScanClient() {
         list.map((r) => ({
           id: r.id,
           path: r.path,
-          type: r.store === "Other" ? t("luducard-custom-folder", "Personalizada") : t("luducard-default-folder", "PadrÃ£o"),
+          type: r.store === "Other" ? t("luducard-custom-folder", "Personalizada") : t("luducard-default-folder", "Padrão"),
           games: 0, // In backend, these are scanned automatically
         }))
       );
     } catch (err) {
       console.error("Failed to load roots:", err);
+    } finally {
+      setFoldersLoaded(true);
     }
+  };
+
+  const startWizard = async () => {
+    setShowWizard(true);
+    setDetecting(true);
+    if (!isTauri) {
+      // Mock data for local development preview
+      setDetectedLaunchers([
+        { path: "C:\\Program Files (x86)\\Steam\\steamapps\\common", store: "Steam", selected: true },
+        { path: "C:\\Program Files\\Epic Games", store: "Epic Games", selected: true },
+        { path: "D:\\GOG Games", store: "GOG Games", selected: false },
+      ]);
+      setDetecting(false);
+      return;
+    }
+
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const list = await invoke<{ id: string; path: string; store: string }[]>("detect_installed_launchers");
+      setDetectedLaunchers(
+        list.map((r) => ({
+          path: r.path,
+          store: r.store === "Other" ? "Pasta de Jogos" : r.store,
+          selected: true,
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to detect launchers:", err);
+      toast.error(t("luducard-detection-failed", "Falha ao detectar plataformas instaladas."));
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const toggleLauncherSelection = (index: number) => {
+    setDetectedLaunchers((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, selected: !item.selected } : item))
+    );
+  };
+
+  const saveWizardSelection = async () => {
+    const selectedList = detectedLaunchers.filter((d) => d.selected);
+    
+    if (selectedList.length > 0 && isTauri) {
+      const id = toast.loading(t("luducard-saving-folders", "Salvando pastas e configurando monitoramento..."));
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        for (const item of selectedList) {
+          await invoke("add_root", { path: item.path });
+        }
+        toast.success(t("luducard-folders-saved-success", "Pastas configuradas com sucesso!"), { id });
+        await loadRoots();
+        
+        if (scanAfterWizard) {
+          startScan();
+        }
+      } catch (err) {
+        console.error("Failed to save wizard selection:", err);
+        toast.error(t("luducard-save-wizard-failed", "Erro ao salvar pastas monitoradas."), { id });
+      }
+    }
+
+    localStorage.setItem("luducard_wizard_completed", "true");
+    setShowWizard(false);
   };
 
   const loadEmulators = async () => {
     if (!isTauri) {
       setEmulators([]);
+      setEmulatorsLoaded(true);
       return;
     }
     try {
@@ -91,6 +165,8 @@ export function ScanClient() {
       setEmulators(list);
     } catch (err) {
       console.error("Failed to load emulators:", err);
+    } finally {
+      setEmulatorsLoaded(true);
     }
   };
 
@@ -114,20 +190,46 @@ export function ScanClient() {
     checkCloudSync();
   }, []);
 
+  useEffect(() => {
+    if (foldersLoaded && folders.length === 0) {
+      const wizardCompleted = localStorage.getItem("luducard_wizard_completed");
+      if (wizardCompleted !== "true") {
+        startWizard();
+      }
+    }
+  }, [foldersLoaded, folders]);
+
+  const getScanStatusText = (prog: number) => {
+    if (prog < 30) {
+      return t("luducard-scan-status-1", "Buscando diretórios de jogos...");
+    } else if (prog < 60) {
+      return t("luducard-scan-status-2", "Analisando saves e arquivos...");
+    } else if (prog < 85) {
+      return t("luducard-scan-status-3", "Calculando metadados e tamanhos...");
+    } else {
+      return t("luducard-scan-status-4", "Finalizando e salvando cache...");
+    }
+  };
+
   async function startScan() {
     setScanning(true)
-    setProgress(10)
-    // Animate progress while waiting for the full backend scan
+    setProgress(5)
+    // Logarithmic decay progress curve: starts relatively fast, then slows down
+    // approaching 99% asymptotically, ensuring the bar keeps moving without freezing.
     const progressInterval = setInterval(() => {
-      setProgress((prev) => Math.min(prev + 3, 90))
+      setProgress((prev) => {
+        const remaining = 99 - prev;
+        const increment = Math.max(0.1, remaining * 0.06);
+        return Math.min(prev + increment, 99);
+      })
     }, 500)
     try {
       await scanGames()
       clearInterval(progressInterval)
       setProgress(100)
       setHasResults(true)
-      toast.success(t("luducard-scan-completed", "Varredura concluÃ­da"), {
-        description: t("luducard-scan-completed-desc", "DetecÃ§Ã£o de alteraÃ§Ãµes finalizada."),
+      toast.success(t("luducard-scan-completed", "Varredura concluída"), {
+        description: t("luducard-scan-completed-desc", "Detecção de alterações finalizada."),
       })
     } catch (err) {
       clearInterval(progressInterval)
@@ -156,7 +258,7 @@ export function ScanClient() {
         
         if (res.is_emulator) {
           const accept = window.confirm(
-            t("luducard-emulator-detected", "A pasta selecionada pertence ao emulador { $emulator }.\n\nDeseja adicionÃ¡-la como um Emulador para rastrear os saves dos seus jogos automaticamente?")
+            t("luducard-emulator-detected", "A pasta selecionada pertence ao emulador { $emulator }.\n\nDeseja adicioná-la como um Emulador para rastrear os saves dos seus jogos automaticamente?")
               .replace(/\{\s*\$emulator\s*\}/g, res.emulator_name || "")
           );
           if (accept) {
@@ -292,22 +394,22 @@ export function ScanClient() {
             <Radar className={cn("size-8", scanning && "animate-spin")} />
           </div>
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-semibold">{t("luducard-auto-search", "Busca automÃ¡tica")}</h2>
+            <h2 className="text-xl font-semibold">{t("luducard-auto-search", "Busca automática")}</h2>
             <p className="max-w-md text-balance text-sm text-muted-foreground">
-              {t("luducard-auto-search-desc", "Varre as pastas comuns do sistema (Steam, Epic, Documentos e AppData) e suas pastas customizadas em busca de novos saves ou alteraÃ§Ãµes.")}
+              {t("luducard-auto-search-desc", "Varre as pastas comuns do sistema (Steam, Epic, Documentos e AppData) e suas pastas customizadas em busca de novos saves ou alterações.")}
             </p>
           </div>
           {scanning ? (
             <div className="flex w-full max-w-sm flex-col gap-2">
               <Progress value={progress} />
               <span className="text-xs text-muted-foreground">
-                {t("luducard-scanning", "Escaneando...")} {progress}%
+                {getScanStatusText(progress)} {Math.round(progress)}%
               </span>
             </div>
           ) : (
             <Button size="lg" onClick={startScan}>
               <Sparkles data-icon="inline-start" />
-              {t("luducard-start-scan", "Iniciar varredura de alteraÃ§Ãµes")}
+              {t("luducard-start-scan", "Iniciar varredura de alterações")}
             </Button>
           )}
         </CardContent>
@@ -319,7 +421,7 @@ export function ScanClient() {
           <div className="flex flex-col gap-1">
             <CardTitle className="text-base">{t("luducard-monitored-folders", "Pastas monitoradas")}</CardTitle>
             <CardDescription>
-              {t("luducard-monitored-folders-desc", "DiretÃ³rios raiz observados continuamente para novos saves.")}
+              {t("luducard-monitored-folders-desc", "Diretórios raiz observados continuamente para novos saves.")}
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={addFolder}>
@@ -328,11 +430,29 @@ export function ScanClient() {
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {folders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-              <FolderPlus className="size-8 text-muted-foreground/30 mb-2.5" />
-              <p className="text-sm font-medium">{t("luducard-no-folders-detected", "Nenhuma pasta de jogos detectada automaticamente.")}</p>
-              <p className="text-xs text-muted-foreground/80 mt-0.5">{t("luducard-click-add-folder-desc", "Clique em \"Adicionar pasta\" para selecionar uma pasta de biblioteca ou emuladores.")}</p>
+          {!foldersLoaded ? (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : folders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground gap-3">
+              <FolderPlus className="size-8 text-muted-foreground/30" />
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">{t("luducard-no-folders-detected", "Nenhuma pasta de jogos configurada.")}</p>
+                <p className="text-xs text-muted-foreground/80 max-w-sm">
+                  {t("luducard-click-add-folder-desc", "Inicie a detecção automática das suas plataformas instaladas ou selecione uma pasta manualmente.")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 mt-2">
+                <Button variant="default" size="sm" onClick={startWizard}>
+                  <Sparkles className="size-4 mr-2" />
+                  Auto-detectar Plataformas
+                </Button>
+                <Button variant="outline" size="sm" onClick={addFolder}>
+                  <Plus className="size-4 mr-2" />
+                  {t("luducard-add-folder", "Adicionar pasta")}
+                </Button>
+              </div>
             </div>
           ) : (
             folders.map((folder) => (
@@ -380,7 +500,7 @@ export function ScanClient() {
           <div className="flex flex-col gap-1">
             <CardTitle className="text-base">{t("luducard-monitored-emulators", "Emuladores monitorados")}</CardTitle>
             <CardDescription>
-              {t("luducard-monitored-emulators-desc", "DiretÃ³rios de emuladores observados para busca automÃ¡tica de saves de console.")}
+              {t("luducard-monitored-emulators-desc", "Diretórios de emuladores observados para busca automática de saves de console.")}
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={addEmulator}>
@@ -389,7 +509,11 @@ export function ScanClient() {
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {emulators.length === 0 ? (
+          {!emulatorsLoaded ? (
+            <div className="flex h-24 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : emulators.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
               <FolderPlus className="size-8 text-muted-foreground/30 mb-2.5" />
               <p className="text-sm font-medium">{t("luducard-no-emulators-configured", "Nenhum emulador configurado.")}</p>
@@ -405,7 +529,7 @@ export function ScanClient() {
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-mono text-sm">{emu.path}</span>
                   <span className="text-xs text-muted-foreground">
-                    {t("luducard-saves-integrated", "Saves integrados Ã  biblioteca")}
+                    {t("luducard-saves-integrated", "Saves integrados à biblioteca")}
                   </span>
                 </div>
                 <PlatformBadge platform="Emulador" emulator={emu.name} />
@@ -434,173 +558,112 @@ export function ScanClient() {
       </Card>
 
 
-      {/* Results */}
-      {hasResults && (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-base">{t("luducard-scan-results", "Resultados da varredura")}</CardTitle>
-              <CardDescription>
-                {t("luducard-scan-results-desc", "Selecione quais jogos com saves novos ou alterados vocÃª deseja fazer backup.")}
-              </CardDescription>
-            </div>
-            {cloudSyncEnabled ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <div
-                      className={cn(
-                        buttonVariants({ variant: "default" }),
-                        "flex items-center gap-1.5 cursor-pointer focus:outline-none",
-                        selectedCount === 0 ? "pointer-events-none opacity-50" : ""
-                      )}
-                    />
-                  }
-                >
-                  <CheckCircle2 />
-                  {t("luducard-backup-selected", "Fazer Backup Selecionados")} {selectedCount > 0 ? `(${selectedCount})` : ""}
-                  <ChevronDown className="size-4 ml-1 opacity-80" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-popover/95 backdrop-blur-md border border-border">
-                  <DropdownMenuItem onClick={async () => {
-                    const gamesToBackup = scanResultsList.filter(r => selected[r.id]);
-                    const id = toast.loading(
-                      t("luducard-starting-batch-backup", "Iniciando backup em lote para { $count } jogos...")
-                        .replace(/\{\s*\$count\s*\}/g, String(gamesToBackup.length))
-                    );
-                    try {
-                      const { invoke } = await import("@tauri-apps/api/core");
-                      for (const game of gamesToBackup) {
-                        toast.loading(`[${game.title}] Criando backup local...`, { id });
-                        await invoke("backup_game", { gameTitle: game.title });
-                      }
-                      toast.success(t("luducard-batch-backup-completed", "Backup dos jogos selecionados concluÃ­do!"), { id });
-                      loadGames(true);
-                      setHasResults(false);
-                    } catch (err) {
-                      toast.error(t("luducard-batch-backup-failed", "Falha no backup em lote."), { id });
-                    }
-                  }}>
-                    <HardDrive className="size-4 mr-2 text-primary" />
-                    <span>Fazer Backup Local</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    const gamesToBackup = scanResultsList.filter(r => selected[r.id]);
-                    const id = toast.loading(
-                      "Iniciando backup em lote e enviando para nuvem..."
-                    );
-                    try {
-                      const { invoke } = await import("@tauri-apps/api/core");
-                      for (const game of gamesToBackup) {
-                        toast.loading(`[${game.title}] Criando backup local e enviando para a nuvem...`, { id });
-                        await invoke("backup_game", { gameTitle: game.title });
-                      }
-                      try {
-                        await invoke("test_cloud_connection");
-                        toast.success("Backup e upload para nuvem concluÃ­dos com sucesso!", { id });
-                      } catch {
-                        toast.warning("Backup local concluÃ­do, mas falhou ao enviar para a nuvem.", { id });
-                      }
-                      loadGames(true);
-                      setHasResults(false);
-                    } catch (err) {
-                      toast.error("Falha no backup e upload.", { id });
-                    }
-                  }}>
-                    <Cloud className="size-4 mr-2 text-primary" />
-                    <span>Sincronizar com a Nuvem</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                disabled={selectedCount === 0}
-                onClick={async () => {
-                  const gamesToBackup = scanResultsList.filter(r => selected[r.id]);
-                  const id = toast.loading(
-                    t("luducard-starting-batch-backup", "Iniciando backup em lote para { $count } jogos...")
-                      .replace(/\{\s*\$count\s*\}/g, String(gamesToBackup.length))
-                  );
-                  try {
-                    const { invoke } = await import("@tauri-apps/api/core");
-                    for (const game of gamesToBackup) {
-                      toast.loading(`[${game.title}] Criando backup local...`, { id });
-                      await invoke("backup_game", { gameTitle: game.title });
-                    }
-                    toast.success(t("luducard-batch-backup-completed", "Backup dos jogos selecionados concluÃ­do!"), { id });
-                    loadGames(true);
-                    setHasResults(false);
-                  } catch (err) {
-                    toast.error(t("luducard-batch-backup-failed", "Falha no backup em lote."), { id });
-                  }
-                }}
-              >
-                <CheckCircle2 data-icon="inline-start" />
-                {t("luducard-backup-selected", "Fazer Backup Selecionados")} {selectedCount > 0 ? `(${selectedCount})` : ""}
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {scanResultsList.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                {t("luducard-no-new-saves-detected", "Nenhum novo save ou alteraÃ§Ã£o detectada. Todos os jogos estÃ£o sincronizados!")}
+
+      {showWizard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl p-6 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Sparkles className="size-6" />
               </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 px-3 py-2 bg-muted/20 rounded-lg border border-border">
-                  <Checkbox
-                    id="select-all-scan"
-                    checked={scanResultsList.length > 0 && selectedCount === scanResultsList.length}
-                    onCheckedChange={(c) => {
-                      const allSelected = c === true;
-                      setSelected(
-                        Object.fromEntries(scanResultsList.map((r) => [r.id, allSelected]))
-                      );
-                    }}
-                  />
-                  <label htmlFor="select-all-scan" className="text-xs font-medium cursor-pointer select-none text-muted-foreground">
-                    {t("luducard-select-all", "Selecionar todos")}
-                  </label>
+              <div className="flex flex-col gap-1 min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">
+                  {t("luducard-wizard-title", "Configuração Inicial de Jogos")}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t("luducard-wizard-desc", "Para fazer o backup automático dos seus saves, o Luducard precisa saber onde seus jogos estão instalados. Detectamos as seguintes pastas:")}
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Content */}
+            <div className="flex flex-col gap-3 max-h-[260px] overflow-y-auto pr-1">
+              {detecting ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3 text-muted-foreground text-sm">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <span>{t("luducard-detecting-launchers", "Buscando plataformas instaladas...")}</span>
                 </div>
-                {scanResultsList.map((r) => (
-                  <label
-                    key={r.id}
-                    className="flex items-center gap-3 rounded-lg border cursor-pointer border-border bg-muted/30 hover:border-primary/40 p-3 transition-colors"
-                  >
-                    <Checkbox
-                      checked={!!selected[r.id]}
-                      onCheckedChange={(c) =>
-                        setSelected((s) => ({ ...s, [r.id]: c === true }))
-                      }
-                    />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex items-center gap-2 truncate font-medium">
-                        {r.title}
-                        {r.status === "never" ? (
-                          <Badge variant="outline" className="text-rose-400 border-rose-400/30 bg-rose-500/10">
-                            {t("luducard-new-game", "Novo Jogo")}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-amber-400 border-amber-400/30 bg-amber-500/10">
-                            {t("luducard-changed-save", "Alterado")}
-                          </Badge>
-                        )}
-                      </span>
-                      <span className="truncate font-mono text-xs text-muted-foreground">
-                        {r.savePath}
-                      </span>
-                    </div>
-                    <Separator orientation="vertical" className="hidden h-8 sm:block" />
-                    <div className="hidden w-16 shrink-0 text-right text-xs text-muted-foreground sm:block">
-                      {formatSize(r.sizeMB)}
-                    </div>
-                    <PlatformBadge platform={r.platform} />
-                  </label>
-                ))}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              ) : detectedLaunchers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground gap-2">
+                  <Folder className="size-8 text-muted-foreground/30" />
+                  <p className="text-sm font-medium">{t("luducard-no-platforms-detected", "Nenhuma plataforma padrão detectada.")}</p>
+                  <p className="text-xs text-muted-foreground/80 leading-normal">
+                    {t("luducard-no-platforms-desc", "Não se preocupe! Você poderá adicionar suas pastas de jogos manualmente depois de fechar este assistente.")}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {detectedLaunchers.map((item, idx) => (
+                    <label
+                      key={idx}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all hover:bg-muted/50",
+                        item.selected ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"
+                      )}
+                    >
+                      <Checkbox
+                        checked={item.selected}
+                        onCheckedChange={() => toggleLauncherSelection(idx)}
+                      />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-semibold text-xs text-primary flex items-center gap-1.5">
+                          {item.store}
+                        </span>
+                        <span className="truncate font-mono text-xs text-muted-foreground mt-0.5" title={item.path}>
+                          {item.path}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Footer */}
+            <div className="flex flex-col gap-4">
+              {detectedLaunchers.length > 0 && (
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <Checkbox
+                    id="scan-after-wizard"
+                    checked={scanAfterWizard}
+                    onCheckedChange={(c) => setScanAfterWizard(c === true)}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {t("luducard-scan-after-wizard", "Escanear novos saves imediatamente após salvar")}
+                  </span>
+                </label>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.setItem("luducard_wizard_completed", "true");
+                    setShowWizard(false);
+                  }}
+                >
+                  {t("luducard-wizard-skip", "Pular / Configurar depois")}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={detecting || (detectedLaunchers.length > 0 && !detectedLaunchers.some((d) => d.selected))}
+                  onClick={saveWizardSelection}
+                >
+                  {detectedLaunchers.length > 0
+                    ? t("luducard-wizard-confirm", "Confirmar e Salvar")
+                    : t("luducard-wizard-close", "Fechar")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

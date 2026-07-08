@@ -142,6 +142,7 @@ fn main() {
             commands::test_cloud_connection,
             commands::check_cloud_conflict,
             commands::get_roots,
+            commands::detect_installed_launchers,
             commands::add_root,
             commands::remove_root,
             commands::select_folder,
@@ -181,6 +182,7 @@ fn main() {
             commands::create_save_profile,
             commands::switch_save_profile,
             commands::delete_save_profile,
+            commands::clear_app_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Luducard");

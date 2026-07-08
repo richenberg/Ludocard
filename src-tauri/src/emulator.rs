@@ -273,7 +273,7 @@ pub fn identify_emulator(dir: &Path) -> Option<String> {
 }
 
 /// Scans the saves for a given emulator type and path
-pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedSave> {
+pub fn scan_emulator_saves(emulator_name: &str, path_str: &str, app_data_dir: Option<PathBuf>) -> Vec<DetectedSave> {
     let mut saves = Vec::new();
     let root_path = Path::new(path_str);
     let emulator_dir = if root_path.is_file() {
@@ -331,7 +331,7 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                                             .replace('\\', "/");
                                         let game_title = get_switch_game_name(&name_str)
                                             .map(|s| s.to_string())
-                                            .or_else(|| online_lookup_switch(&name_str))
+                                            .or_else(|| online_lookup_switch(&name_str, app_data_dir.as_deref()))
                                             .unwrap_or_else(|| format!("Switch Game ({})", name_str.to_uppercase()));
 
                                         if !saves.iter().any(|s: &DetectedSave| s.game_title == game_title) {
@@ -375,7 +375,7 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                                     .replace('\\', "/");
                                 let game_title = get_switch_game_name(&name_str)
                                     .map(|s| s.to_string())
-                                    .or_else(|| online_lookup_switch(&name_str))
+                                    .or_else(|| online_lookup_switch(&name_str, app_data_dir.as_deref()))
                                     .unwrap_or_else(|| format!("Switch Game ({})", name_str.to_uppercase()));
 
                                 if !saves.iter().any(|s: &DetectedSave| s.game_title == game_title) {
@@ -431,7 +431,7 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str) -> Vec<DetectedS
                         if save_data_dir.exists() {
                             let game_title = get_wiiu_game_name(&name_str)
                                 .map(|s| s.to_string())
-                                .or_else(|| online_lookup_wiiu(&name_str))
+                                .or_else(|| online_lookup_wiiu(&name_str, app_data_dir.as_deref()))
                                 .unwrap_or_else(|| format!("Wii U Game ({})", name_str.to_uppercase()));
 
                             saves.push(DetectedSave {
@@ -704,14 +704,56 @@ pub fn heal_custom_game_paths() -> Result<(), String> {
     Ok(())
 }
 
-fn online_lookup_switch(title_id: &str) -> Option<String> {
+fn load_titles_cache(app_data_dir: &Path) -> serde_json::Value {
+    let path = app_data_dir.join("emulator_titles_cache.json");
+    if path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(json) = serde_json::from_str(&content) {
+                return json;
+            }
+        }
+    }
+    serde_json::json!({
+        "switch": {},
+        "wiiu": {}
+    })
+}
+
+fn save_titles_cache(app_data_dir: &Path, cache: &serde_json::Value) {
+    let path = app_data_dir.join("emulator_titles_cache.json");
+    if let Ok(content) = serde_json::to_string_pretty(cache) {
+        let _ = std::fs::write(&path, content);
+    }
+}
+
+fn online_lookup_switch(title_id: &str, app_data_dir: Option<&Path>) -> Option<String> {
+    let title_id_lower = title_id.to_lowercase();
+
+    // Check JSON cache first
+    let mut cache = None;
+    if let Some(dir) = app_data_dir {
+        let loaded = load_titles_cache(dir);
+        if let Some(cached_val) = loaded
+            .get("switch")
+            .and_then(|v| v.get(&title_id_lower))
+            .and_then(|s| s.as_str())
+        {
+            if cached_val == "__NOT_FOUND__" {
+                return None;
+            }
+            return Some(cached_val.to_string());
+        }
+        cache = Some(loaded);
+    }
+
+    // Perform HTTP lookup
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(3))
         .build()
         .ok()?;
-    let id_lower = title_id.to_lowercase();
-    let url = format!("https://tinfoil.io/Title/{}", id_lower);
-    if let Ok(resp) = client.get(&url).send()
+    let url = format!("https://tinfoil.io/Title/{}", title_id_lower);
+
+    let result = if let Ok(resp) = client.get(&url).send()
         && resp.status().is_success()
         && let Ok(html) = resp.text()
         && let Some(pos) = html.find("og:title")
@@ -720,27 +762,90 @@ fn online_lookup_switch(title_id: &str) -> Option<String> {
     {
         let name = &html[pos + content_pos + 9..pos + content_pos + 9 + end_pos];
         let cleaned = name.trim().to_string();
-        if !cleaned.is_empty() {
-            return Some(cleaned);
+        if !cleaned.is_empty() { Some(cleaned) } else { None }
+    } else {
+        None
+    };
+
+    // Update cache
+    if let Some(dir) = app_data_dir
+        && let Some(mut loaded) = cache
+    {
+        let val_to_store = result.clone().unwrap_or_else(|| "__NOT_FOUND__".to_string());
+        if let Some(switch_map) = loaded.get_mut("switch").and_then(|v| v.as_object_mut()) {
+            switch_map.insert(title_id_lower, serde_json::Value::String(val_to_store));
         }
+        save_titles_cache(dir, &loaded);
     }
-    None
+
+    result
 }
 
-fn online_lookup_wiiu(title_id: &str) -> Option<String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(3))
-        .build()
-        .ok()?;
-    let url = "https://raw.githubusercontent.com/Laf111/CEMU-Batch-Framework/master/resources/WiiU-Titles-Library.csv";
-    if let Ok(resp) = client.get(url).send()
-        && resp.status().is_success()
-        && let Ok(content) = resp.text()
-    {
-        let id_upper = title_id.to_uppercase();
+fn online_lookup_wiiu(title_id: &str, app_data_dir: Option<&Path>) -> Option<String> {
+    let title_id_upper = title_id.to_uppercase();
+
+    // Check JSON cache first
+    let mut cache = None;
+    if let Some(dir) = app_data_dir {
+        let loaded = load_titles_cache(dir);
+        if let Some(cached_val) = loaded
+            .get("wiiu")
+            .and_then(|v| v.get(&title_id_upper))
+            .and_then(|s| s.as_str())
+        {
+            if cached_val == "__NOT_FOUND__" {
+                return None;
+            }
+            return Some(cached_val.to_string());
+        }
+        cache = Some(loaded);
+    }
+
+    // Get Wii U Library CSV (cached or download)
+    let csv_content = if let Some(dir) = app_data_dir {
+        let csv_path = dir.join("wiiu_titles_library.csv");
+        if csv_path.exists() {
+            std::fs::read_to_string(&csv_path).ok()
+        } else {
+            // Download CSV
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()
+                .ok()?;
+            let url = "https://raw.githubusercontent.com/Laf111/CEMU-Batch-Framework/master/resources/WiiU-Titles-Library.csv";
+            if let Ok(resp) = client.get(url).send()
+                && resp.status().is_success()
+                && let Ok(content) = resp.text()
+            {
+                let _ = std::fs::write(&csv_path, &content);
+                Some(content)
+            } else {
+                None
+            }
+        }
+    } else {
+        // Fallback: download direct in memory if app_data_dir is not provided
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .ok()?;
+        let url =
+            "https://raw.githubusercontent.com/Laf111/CEMU-Batch-Framework/master/resources/WiiU-Titles-Library.csv";
+        if let Ok(resp) = client.get(url).send()
+            && resp.status().is_success()
+            && let Ok(content) = resp.text()
+        {
+            Some(content)
+        } else {
+            None
+        }
+    };
+
+    let result = if let Some(content) = csv_content {
+        let mut found = None;
         for line in content.lines() {
             let line_upper = line.to_uppercase();
-            if line_upper.contains(&id_upper) {
+            if line_upper.contains(&title_id_upper) {
                 let parts: Vec<&str> = if line.contains(';') {
                     line.split(';').collect()
                 } else {
@@ -749,11 +854,27 @@ fn online_lookup_wiiu(title_id: &str) -> Option<String> {
                 if parts.len() > 1 {
                     let name = parts[1].trim().trim_matches('"').trim();
                     if !name.is_empty() {
-                        return Some(name.to_string());
+                        found = Some(name.to_string());
+                        break;
                     }
                 }
             }
         }
+        found
+    } else {
+        None
+    };
+
+    // Update cache
+    if let Some(dir) = app_data_dir
+        && let Some(mut loaded) = cache
+    {
+        let val_to_store = result.clone().unwrap_or_else(|| "__NOT_FOUND__".to_string());
+        if let Some(wiiu_map) = loaded.get_mut("wiiu").and_then(|v| v.as_object_mut()) {
+            wiiu_map.insert(title_id_upper, serde_json::Value::String(val_to_store));
+        }
+        save_titles_cache(dir, &loaded);
     }
-    None
+
+    result
 }

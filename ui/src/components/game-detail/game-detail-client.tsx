@@ -49,22 +49,22 @@ interface TagInfo {
 }
 
 const PREDEFINED_PRESET_TAGS: TagInfo[] = [
-  { name: "Performance", description: "OtimizaÃ§Ãµes focadas em ganho de FPS e fluidez." },
-  { name: "Qualidade / Visual", description: "OtimizaÃ§Ãµes focadas em qualidade grÃ¡fica mÃ¡xima." },
-  { name: "Balanced", description: "EquilÃ­brio ideal entre fidelidade visual e taxa de FPS." },
-  { name: "Steam Deck", description: "Perfil otimizado especificamente para a tela e bateria do Steam Deck/portÃ¡teis." },
+  { name: "Performance", description: "Otimizações focadas em ganho de FPS e fluidez." },
+  { name: "Qualidade / Visual", description: "Otimizações focadas em qualidade gráfica máxima." },
+  { name: "Balanced", description: "Equilíbrio ideal entre fidelidade visual e taxa de FPS." },
+  { name: "Steam Deck", description: "Perfil otimizado especificamente para a tela e bateria do Steam Deck/portáteis." },
   { name: "Potato Mode", description: "Para rodar em PCs super antigos e notebooks modestos." },
   { name: "Controles / Layout", description: "Mapeamento customizado de controles, gamepad ou hotkeys." },
-  { name: "Ray Tracing Opt", description: "ConfiguraÃ§Ã£o refinada com traÃ§ado de raio ativo, visando boa taxa de quadros." },
-  { name: "4K Ready", description: "OtimizaÃ§Ãµes focadas em TVs e monitores 4K de alta definiÃ§Ã£o." },
-  { name: "VR Ready", description: "ConfiguraÃ§Ãµes ajustadas para taxa de FPS ideal em realidade virtual." }
+  { name: "Ray Tracing Opt", description: "Configuração refinada com traçado de raio ativo, visando boa taxa de quadros." },
+  { name: "4K Ready", description: "Otimizações focadas em TVs e monitores 4K de alta definição." },
+  { name: "VR Ready", description: "Configurações ajustadas para taxa de FPS ideal em realidade virtual." }
 ]
 
 const kindColors: Record<BackupKind | string, string> = {
-  AutomÃ¡tico: "text-primary",
+  "Automático": "text-primary",
   Manual: "text-sky-300",
   "Antes de fechar": "text-amber-300",
-  RestauraÃ§Ã£o: "text-violet-300",
+  "Restauração": "text-violet-300",
 }
 
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -132,7 +132,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
         game.notes = localNotes;
       } catch (err) {
-        toast.error(`Falha ao salvar anotaÃ§Ã£o: ${err}`);
+        toast.error(`Falha ao salvar anotação: ${err}`);
       }
     } else {
       game.notes = localNotes;
@@ -245,17 +245,17 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
     const title = conflictInfo.gameTitle;
     const id = toast.loading(
       direction === "local"
-        ? `Resolvendo conflito: mantendo a versÃ£o local de "${title}"...`
-        : `Resolvendo conflito: baixando a versÃ£o da nuvem de "${title}"...`
+        ? `Resolvendo conflito: mantendo a versão local de "${title}"...`
+        : `Resolvendo conflito: baixando a versão da nuvem de "${title}"...`
     );
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       if (direction === "local") {
         await invoke("backup_game", { gameTitle: title });
-        toast.success(`VersÃ£o local de "${title}" salva na nuvem!`, { id });
+        toast.success(`Versão local de "${title}" salva na nuvem!`, { id });
       } else {
         await invoke("restore_game", { gameTitle: title, backupId: null });
-        toast.success(`VersÃ£o da nuvem de "${title}" restaurada!`, { id });
+        toast.success(`Versão da nuvem de "${title}" restaurada!`, { id });
       }
       setConflictModalOpen(false);
       setConflictInfo(null);
@@ -271,29 +271,29 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("restore_game", { gameTitle: game.title, backupId: null });
-        toast.success(`VersÃ£o mais recente de "${game.title}" restaurada!`, { id });
+        toast.success(`Versão mais recente de "${game.title}" restaurada!`, { id });
         if (onRefresh) onRefresh();
       } catch (err) {
         toast.error(`Falha ao restaurar: ${err}`, { id });
       }
     } else {
-      toast.info(`[Mock] Restaurando versÃ£o mais recente de "${game.title}"`);
+      toast.info(`[Mock] Restaurando versão mais recente de "${game.title}"`);
     }
   };
 
   const handleRestoreVersion = async (versionId: string, versionDate: string) => {
     if (isTauri) {
-      const id = toast.loading(`Restaurando versÃ£o "${versionId}" de "${game.title}"...`);
+      const id = toast.loading(`Restaurando versão "${versionId}" de "${game.title}"...`);
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("restore_game", { gameTitle: game.title, backupId: versionId });
-        toast.success(`VersÃ£o de ${versionDate} restaurada!`, { id });
+        toast.success(`Versão de ${versionDate} restaurada!`, { id });
         if (onRefresh) onRefresh();
       } catch (err) {
-        toast.error(`Falha ao restaurar versÃ£o: ${err}`, { id });
+        toast.error(`Falha ao restaurar versão: ${err}`, { id });
       }
     } else {
-      toast.info(`[Mock] Restaurando versÃ£o de ${versionDate}`);
+      toast.info(`[Mock] Restaurando versão de ${versionDate}`);
     }
   };
 
@@ -318,7 +318,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         gameTitle: game.title,
         gameId: game.id,
         checkpointTitle: `Backup de ${game.title} - ${backupDate} ${backupTime}`,
-        description: `Exportado a partir do backup local realizado em ${backupDate} Ã s ${backupTime}.`,
+        description: `Exportado a partir do backup local realizado em ${backupDate} às ${backupTime}.`,
         backupPath: game.backupPath || "",
         backupId: backupId,
         savePath: game.savePath,
@@ -328,7 +328,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       const compressedMB = (metadata.compressedSizeBytes / (1024 * 1024)).toFixed(1);
       const originalMB = (metadata.totalSizeBytes / (1024 * 1024)).toFixed(1);
       toast.success(
-        `Exportado com sucesso! ${originalMB} MB â†’ ${compressedMB} MB compactado`,
+        `Exportado com sucesso! ${originalMB} MB �  ${compressedMB} MB compactado`,
         { id: toastId }
       );
     } catch (err) {
@@ -341,8 +341,8 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       const nextLocked = !currentLocked;
       const id = toast.loading(
         nextLocked
-          ? `Bloqueando versÃ£o "${versionId}"...`
-          : `Desbloqueando versÃ£o "${versionId}"...`
+          ? `Bloqueando versão "${versionId}"...`
+          : `Desbloqueando versão "${versionId}"...`
       );
       try {
         const { invoke } = await import("@tauri-apps/api/core");
@@ -353,22 +353,22 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         });
         toast.success(
           nextLocked
-            ? "VersÃ£o bloqueada com sucesso! Ela nÃ£o serÃ¡ deletada automaticamente."
-            : "VersÃ£o desbloqueada com sucesso.",
+            ? "Versão bloqueada com sucesso! Ela não será deletada automaticamente."
+            : "Versão desbloqueada com sucesso.",
           { id }
         );
         if (onRefresh) onRefresh();
       } catch (err) {
-        toast.error(`Falha ao alterar status da versÃ£o: ${err}`, { id });
+        toast.error(`Falha ao alterar status da versão: ${err}`, { id });
       }
     } else {
-      toast.info(`[Mock] Alterado bloqueio da versÃ£o "${versionId}" para ${!currentLocked}`);
+      toast.info(`[Mock] Alterado bloqueio da versão "${versionId}" para ${!currentLocked}`);
     }
   };
 
   const handleOpenFolder = async (folderType: "game" | "save" | "backup") => {
     if (!isTauri) {
-      toast.info(`[Mock] Abrindo pasta de ${folderType === "game" ? "instalaÃ§Ã£o" : folderType === "save" ? "saves" : "backups"} para ${game.title}`);
+      toast.info(`[Mock] Abrindo pasta de ${folderType === "game" ? "instalação" : folderType === "save" ? "saves" : "backups"} para ${game.title}`);
       return;
     }
     try {
@@ -411,7 +411,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       const compressedMB = (metadata.compressedSizeBytes / (1024 * 1024)).toFixed(1);
       const originalMB = (metadata.totalSizeBytes / (1024 * 1024)).toFixed(1);
       toast.success(
-        `Exportado com sucesso! ${originalMB} MB â†’ ${compressedMB} MB compactado`,
+        `Exportado com sucesso! ${originalMB} MB �  ${compressedMB} MB compactado`,
         { id: toastId }
       );
     } catch (err) {
@@ -453,7 +453,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             r2Path: item.r2_path,
             fileSize: Number(item.file_size || 0),
             description: item.description || "",
-            authorName: item.author_name || "AnÃ´nimo",
+            authorName: item.author_name || "Anônimo",
             userUuid: item.user_uuid,
             cpu: item.cpu || "",
             gpu: item.gpu || "",
@@ -468,7 +468,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           }))
           setPresets(mapped)
         } else {
-          toast.error("Erro ao carregar presets comunitÃ¡rios.")
+          toast.error("Erro ao carregar presets comunitários.")
         }
       } else {
         setIsConfigured(false)
@@ -494,7 +494,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           gameId: game.id,
           gameTitle: game.title,
           title: "Meu Perfil - Ultra Performance",
-          description: "Desativa sombras volumÃ©tricas e reduz resoluÃ§Ã£o de texturas secundÃ¡rias. Perfeito para manter 60fps constantes.",
+          description: "Desativa sombras volumétricas e reduz resolução de texturas secundárias. Perfeito para manter 60fps constantes.",
           cpu: "Intel Core i5-10400F",
           gpu: "NVIDIA GeForce GTX 1660 Super",
           ram: "16 GB",
@@ -523,7 +523,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           id: "mock-1",
           gameId: game.id,
           title: "Campanha Vanilla",
-          description: "Minha primeira campanha sem modificaÃ§Ãµes, progresso inicial.",
+          description: "Minha primeira campanha sem modificações, progresso inicial.",
           createdAt: "2026-06-30T15:30:00Z",
           active: true
         },
@@ -555,7 +555,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
   const handleCreateSaveProfile = async () => {
     if (!newProfileTitle.trim()) {
-      toast.error("Por favor, informe um tÃ­tulo para o perfil.")
+      toast.error("Por favor, informe um título para o perfil.")
       return
     }
     const toastId = toast.loading("Criando novo perfil de save...")
@@ -607,7 +607,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   }
 
   const handleDeleteSaveProfile = async (profileId: string, profileTitle: string) => {
-    if (!confirm(`Tem certeza de que deseja excluir o perfil "${profileTitle}"? Todos os saves deste perfil serÃ£o deletados permanentemente.`)) {
+    if (!confirm(`Tem certeza de que deseja excluir o perfil "${profileTitle}"? Todos os saves deste perfil serão deletados permanentemente.`)) {
       return
     }
     const toastId = toast.loading(`Excluindo perfil "${profileTitle}"...`)
@@ -619,7 +619,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           profileId
         })
       }
-      toast.success(`Perfil "${profileTitle}" excluÃ­do com sucesso!`, { id: toastId })
+      toast.success(`Perfil "${profileTitle}" excluído com sucesso!`, { id: toastId })
       fetchSaveProfiles()
     } catch (err: any) {
       console.error(err)
@@ -642,10 +642,10 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   // Save Local Preset
   const handleSaveLocalPreset = async (title: string, description: string, files: string[]) => {
     if (files.length === 0) {
-      toast.error("Selecione pelo menos um arquivo de configuraÃ§Ã£o.")
+      toast.error("Selecione pelo menos um arquivo de configuração.")
       return
     }
-    const id = toast.loading("Salvando configuraÃ§Ãµes locais como preset...")
+    const id = toast.loading("Salvando configurações locais como preset...")
     try {
       const { invoke } = await import("@tauri-apps/api/core")
       if (isTauri) {
@@ -669,7 +669,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
   // Apply Local Preset
   const handleApplyLocalPreset = async (preset: any) => {
-    const id = toast.loading(`Iniciando Seguro-Crash para configuraÃ§Ãµes de ${game.title}...`)
+    const id = toast.loading(`Iniciando Seguro-Crash para configurações de ${game.title}...`)
     try {
       const { invoke } = await import("@tauri-apps/api/core")
       if (isTauri) {
@@ -723,7 +723,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
   // Apply Preset (Community)
   const handleApplyPreset = async (preset: any) => {
-    const toastId = toast.loading("Iniciando Seguro-Crash para salvaguardar configuraÃ§Ãµes...")
+    const toastId = toast.loading("Iniciando Seguro-Crash para salvaguardar configurações...")
     try {
       const { invoke } = await import("@tauri-apps/api/core")
 
@@ -737,7 +737,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         setHasCrashSafetyBackup(true)
       }
 
-      toast.loading("Baixando e aplicando preset de configuraÃ§Ãµes otimizadas...", { id: toastId })
+      toast.loading("Baixando e aplicando preset de configurações otimizadas...", { id: toastId })
 
       // Step 2: Get download url
       let downloadUrl = ""
@@ -789,7 +789,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         await new Promise(r => setTimeout(r, 1500))
       }
 
-      toast.success("Preset comunitÃ¡rio injetado com sucesso! Salvo na sua biblioteca local.", { id: toastId })
+      toast.success("Preset comunitário injetado com sucesso! Salvo na sua biblioteca local.", { id: toastId })
       fetchGamePresets()
       fetchLocalPresets()
     } catch (err) {
@@ -800,7 +800,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
   // Restore Original Configurations (Undo)
   const handleUndoPreset = async () => {
-    const toastId = toast.loading("Restaurando arquivos de configuraÃ§Ãµes originais do Seguro-Crash...")
+    const toastId = toast.loading("Restaurando arquivos de configurações originais do Seguro-Crash...")
     try {
       const { invoke } = await import("@tauri-apps/api/core")
       if (isTauri) {
@@ -813,7 +813,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
       localStorage.removeItem(`luducard_preset_safety_${game.id}`)
       setHasCrashSafetyBackup(false)
-      toast.success("ConfiguraÃ§Ã£o original restaurada com sucesso! Saves intocados.", { id: toastId })
+      toast.success("Configuração original restaurada com sucesso! Saves intocados.", { id: toastId })
     } catch (err) {
       console.error(err)
       toast.error(`Falha ao restaurar backup Seguro-Crash: ${err}`, { id: toastId })
@@ -866,7 +866,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           body: JSON.stringify({ preset_id: presetId })
         })
       }
-      toast.success("DenÃºncia enviada! Preset serÃ¡ ocultado da comunidade se receber 3 denÃºncias.")
+      toast.success("Denúncia enviada! Preset será ocultado da comunidade se receber 3 denúncias.")
       
       // Update local state and hide if reports count reaches 3
       setPresets(prev => prev.map(p => {
@@ -876,7 +876,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
         return p
       }).filter(p => p.id !== presetId || p.reportsCount < 3))
     } catch (err) {
-      toast.error("Falha ao enviar denÃºncia.")
+      toast.error("Falha ao enviar denúncia.")
     }
   }
 
@@ -929,7 +929,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   const handlePublishPreset = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!presetTitle) {
-      toast.error("Por favor, preencha o tÃ­tulo do preset.")
+      toast.error("Por favor, preencha o título do preset.")
       return
     }
 
@@ -937,7 +937,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
     let tempPath = ""
     try {
       const { invoke } = await import("@tauri-apps/api/core")
-      const toastId = toast.loading("Empacotando arquivos de configuraÃ§Ã£o...")
+      const toastId = toast.loading("Empacotando arquivos de configuração...")
 
       // Step 1: Export preset files to a temporary .luducard archive
       if (isTauri) {
@@ -950,7 +950,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           });
         } else {
           if (selectedConfigFiles.length === 0) {
-            toast.error("Selecione pelo menos um arquivo de configuraÃ§Ã£o.")
+            toast.error("Selecione pelo menos um arquivo de configuração.")
             setPublishing(false)
             return
           }
@@ -989,7 +989,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
           if (!edgeRes.ok) {
             const errData = await edgeRes.json().catch(() => ({}))
-            throw new Error(errData.error || `Erro de cota ou limite no repositÃ³rio.`);
+            throw new Error(errData.error || `Erro de cota ou limite no repositório.`);
           }
 
           const { uploadUrl, r2Path } = await edgeRes.json()
@@ -1021,7 +1021,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               r2_path: r2Path,
               file_size: fileSize,
               description: presetDesc,
-              author_name: authorName || "AnÃ´nimo",
+              author_name: authorName || "Anônimo",
               user_uuid: clientUuid,
               cpu,
               gpu,
@@ -1034,7 +1034,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
           if (!dbRes.ok) {
             const errText = await dbRes.text()
             if (errText.includes("enforce_user_preset_quota_trigger")) {
-              throw new Error("VocÃª atingiu o limite de 5 presets ativos na nuvem.")
+              throw new Error("Você atingiu o limite de 5 presets ativos na nuvem.")
             }
             throw new Error(`Falha ao registrar preset: ${errText}`)
           }
@@ -1094,7 +1094,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <div className="flex flex-wrap items-center gap-2">
               <PlatformBadge platform={game.platform} emulator={game.emulator} />
               <span className="text-xs text-muted-foreground">
-                {game.backups.length} {t("luducard-saved-versions", "versÃµes salvas")}
+                {game.backups.length} {t("luducard-saved-versions", "versões salvas")}
               </span>
             </div>
             <h2 className="text-balance text-2xl font-bold leading-tight sm:text-3xl">
@@ -1118,7 +1118,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 onClick={handleRestoreLatest}
               >
                 <ArrowDownToLine data-icon="inline-start" />
-                {t("luducard-restore-latest", "Restaurar Ãºltima")}
+                {t("luducard-restore-latest", "Restaurar última")}
               </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
@@ -1126,7 +1126,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenFolder("game")}
-                title={t("luducard-open-game-folder-desc", "Abrir pasta de instalaÃ§Ã£o do jogo no Windows Explorer")}
+                title={t("luducard-open-game-folder-desc", "Abrir pasta de instalação do jogo no Windows Explorer")}
               >
                 <Folder className="size-3.5" data-icon="inline-start" />
                 {t("luducard-game-folder", "Pasta do Jogo")}
@@ -1174,13 +1174,13 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <CardContent className="flex flex-col gap-2.5">
               <StatusPill
                 active={game.autoBackup}
-                label={t("luducard-file-watcher", "Backup automÃ¡tico")}
+                label={t("luducard-file-watcher", "Backup automático")}
                 onIcon={Zap}
                 offIcon={Zap}
               />
               <StatusPill
                 active={game.cloudSync}
-                label={t("luducard-cloud-sync", "SincronizaÃ§Ã£o na nuvem")}
+                label={t("luducard-cloud-sync", "Sincronização na nuvem")}
                 onIcon={Cloud}
                 offIcon={CloudOff}
               />
@@ -1205,10 +1205,10 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Gamepad2 className="size-4 text-primary" />
-                {t("luducard-campaign-notes", "DiÃ¡rio de Bordo")}
+                {t("luducard-campaign-notes", "Diário de Bordo")}
               </CardTitle>
               <CardDescription className="text-xs">
-                {t("luducard-campaign-notes-desc", "AnotaÃ§Ãµes rÃ¡pidas sobre o seu progresso")}
+                {t("luducard-campaign-notes-desc", "Anotações rápidas sobre o seu progresso")}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-1">
@@ -1216,7 +1216,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 value={localNotes}
                 onChange={(e) => setLocalNotes(e.target.value)}
                 onBlur={saveNotes}
-                placeholder={t("luducard-campaign-notes-placeholder", "Escreva anotaÃ§Ãµes rÃ¡pidas sobre o seu progresso neste jogo...")}
+                placeholder={t("luducard-campaign-notes-placeholder", "Escreva anotações rápidas sobre o seu progresso neste jogo...")}
                 className="w-full min-h-[100px] resize-y bg-muted/40 border border-border focus:border-primary/50 rounded-md p-2.5 text-xs leading-normal outline-none transition-colors text-foreground placeholder:text-muted-foreground/40 font-normal"
               />
             </CardContent>
@@ -1224,11 +1224,11 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("luducard-quick-preferences", "PreferÃªncias rÃ¡pidas")}</CardTitle>
+              <CardTitle className="text-base">{t("luducard-quick-preferences", "Preferências rápidas")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <label className="flex items-center justify-between gap-2">
-                <span className="text-sm">{t("luducard-file-watcher", "Backup automÃ¡tico")}</span>
+                <span className="text-sm">{t("luducard-file-watcher", "Backup automático")}</span>
                 <Switch
                   checked={game.autoBackup}
                   disabled={true} /* Controlled by main settings config */
@@ -1259,9 +1259,9 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 )}
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground/90">
                   {activeTab === "saves"
-                    ? t("luducard-save-history", "HistÃ³rico de Saves")
+                    ? t("luducard-save-history", "Histórico de Saves")
                     : activeTab === "presets"
-                    ? t("luducard-config-presets", "Presets de ConfiguraÃ§Ã£o")
+                    ? t("luducard-config-presets", "Presets de Configuração")
                     : t("luducard-save-profiles-title", "Perfis de Saves (Modding)")}
                 </CardTitle>
               </div>
@@ -1288,7 +1288,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t("luducard-presets-configs", "Presets & ConfiguraÃ§Ãµes")}
+                  {t("luducard-presets-configs", "Presets & Configurações")}
                 </button>
                 <button
                   onClick={() => setActiveTab("profiles")}
@@ -1316,7 +1316,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                     </EmptyMedia>
                     <EmptyTitle>{t("luducard-no-backups-yet", "Nenhum backup ainda")}</EmptyTitle>
                     <EmptyDescription>
-                      {t("luducard-do-first-backup-desc", "FaÃ§a o primeiro backup deste jogo para comeÃ§ar a linha do tempo.")}
+                      {t("luducard-do-first-backup-desc", "Faça o primeiro backup deste jogo para começar a linha do tempo.")}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -1341,7 +1341,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">
-                              {b.date} Ã s {b.time}
+                              {b.date} às {b.time}
                             </span>
                             {b.cloud ? (
                               <Cloud className="size-3.5 text-primary" />
@@ -1360,7 +1360,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                               <span className={cn("font-medium", kindColors[b.kind] || "text-muted-foreground")}>
                                 {b.kind}
                               </span>
-                              <span>â€¢</span>
+                              <span>⬢</span>
                               <span>{formatSize(b.sizeMB)}</span>
                             </div>
                             
@@ -1396,7 +1396,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                             size="icon-sm"
                             variant={b.locked ? "secondary" : "ghost"}
                             onClick={() => handleToggleLocked(b.id, !!b.locked)}
-                            title={b.locked ? "Desafixar versÃ£o (permitir exclusÃ£o automÃ¡tica)" : "Fixar/Alfinetar versÃ£o (impedir exclusÃ£o automÃ¡tica)"}
+                            title={b.locked ? "Desafixar versão (permitir exclusão automática)" : "Fixar/Alfinetar versão (impedir exclusão automática)"}
                             className={cn(
                               b.locked ? "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10" : "text-muted-foreground hover:text-foreground"
                             )}
@@ -1407,11 +1407,11 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                           <Button
                             size="icon-sm"
                             variant="ghost"
-                            onClick={() => toast.error("Por favor, gerencie exclusÃµes de backups pelo app central")}
-                            title="Deletar versÃ£o"
+                            onClick={() => toast.error("Por favor, gerencie exclusões de backups pelo app central")}
+                            title="Deletar versão"
                           >
                             <Trash2 />
-                            <span className="sr-only">Deletar versÃ£o</span>
+                            <span className="sr-only">Deletar versão</span>
                           </Button>
                         </div>
                       </div>
@@ -1455,8 +1455,8 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       <div className="flex items-center gap-2">
                         <SlidersHorizontal className="size-4.5 text-primary" />
                         <div>
-                          <h4 className="text-sm font-semibold">Salvar ConfiguraÃ§Ã£o Atual</h4>
-                          <p className="text-xs text-muted-foreground">Crie um preset local a partir das configuraÃ§Ãµes ativas do seu jogo.</p>
+                          <h4 className="text-sm font-semibold">Salvar Configuração Atual</h4>
+                          <p className="text-xs text-muted-foreground">Crie um preset local a partir das configurações ativas do seu jogo.</p>
                         </div>
                       </div>
                       <Button
@@ -1494,7 +1494,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                         <Info className="size-8 text-muted-foreground/60 mb-2" />
                         <h5 className="font-semibold text-sm">Nenhum preset local</h5>
                         <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                          Capture suas configuraÃ§Ãµes de grÃ¡ficos e controles locais para salvÃ¡-las como um preset ou compartilhÃ¡-las.
+                          Capture suas configurações de gráficos e controles locais para salvá-las como um preset ou compartilhá-las.
                         </p>
                       </div>
                     ) : (
@@ -1513,7 +1513,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                                 })}
                               >
                                 <h5 className="font-bold text-sm leading-tight text-foreground truncate">{lp.title}</h5>
-                                <p className="line-clamp-1 text-xs text-muted-foreground leading-relaxed mt-0.5">{lp.description || "Sem descriÃ§Ã£o."}</p>
+                                <p className="line-clamp-1 text-xs text-muted-foreground leading-relaxed mt-0.5">{lp.description || "Sem descrição."}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                                 <Button
@@ -1548,9 +1548,9 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                                 <Cpu className="size-2.5" />
                                 {lp.cpu ? `${lp.cpu} | ` : ""}{lp.gpu ? `${lp.gpu} | ` : ""}{lp.ram || ""}
                               </span>
-                              <span>â€¢</span>
+                              <span>⬢</span>
                               <span>Criado em: {new Date(lp.createdAt).toLocaleDateString("pt-BR")}</span>
-                              <span>â€¢</span>
+                              <span>⬢</span>
                               <span>{lp.files.length} arquivos mapeados</span>
                             </div>
                           </div>
@@ -1568,7 +1568,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                           <AlertTriangle className="size-4.5 text-red-400 animate-pulse" />
                           <div className="text-xs text-red-400">
                             <span className="font-semibold block">Seguro-Crash Ativo</span>
-                            VocÃª aplicou um preset recentemente. Se houver falhas, restaure as configs originais.
+                            Você aplicou um preset recentemente. Se houver falhas, restaure as configs originais.
                           </div>
                         </div>
                         <Button
@@ -1591,9 +1591,9 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                     ) : presets.length === 0 ? (
                       <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-border rounded-xl bg-card/20">
                         <Info className="size-8 text-muted-foreground/60 mb-2" />
-                        <h5 className="font-semibold text-sm">Nenhum preset comunitÃ¡rio</h5>
+                        <h5 className="font-semibold text-sm">Nenhum preset comunitário</h5>
                         <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                          NÃ£o hÃ¡ presets publicados para este jogo na nuvem. Crie um local e compartilhe!
+                          Não há presets publicados para este jogo na nuvem. Crie um local e compartilhe!
                         </p>
                       </div>
                     ) : (
@@ -1669,7 +1669,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                                   <span>Por: <strong className="text-foreground">{preset.authorName}</strong></span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-1" title="AprovaÃ§Ã£o">
+                                  <div className="flex items-center gap-1" title="Aprovação">
                                     <ThumbsUp className="size-3 text-primary" />
                                     <span className="font-semibold text-foreground">{approvalRatio}%</span>
                                   </div>
@@ -1714,7 +1714,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                        {t("luducard-profiles-header", "Gerenciamento de Perfis de Save")}
                      </h3>
                      <p className="text-xs text-muted-foreground">
-                       {t("luducard-profiles-intro", "Crie campanhas separadas ou separe gameplay com mods. O Luducard cuidarÃ¡ de trocar e guardar os saves correspondentes automaticamente.")}
+                       {t("luducard-profiles-intro", "Crie campanhas separadas ou separe gameplay com mods. O Luducard cuidará de trocar e guardar os saves correspondentes automaticamente.")}
                      </p>
                    </div>
                    <Button
@@ -1744,7 +1744,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                        </EmptyMedia>
                        <EmptyTitle>{t("luducard-no-profiles-yet", "Nenhum Perfil de Save")}</EmptyTitle>
                        <EmptyDescription>
-                         {t("luducard-no-profiles-desc", "O jogo estÃ¡ usando os arquivos de save padrÃ£o do seu sistema. Crie o primeiro perfil para comeÃ§ar a organizar suas campanhas.")}
+                         {t("luducard-no-profiles-desc", "O jogo está usando os arquivos de save padrão do seu sistema. Crie o primeiro perfil para começar a organizar suas campanhas.")}
                        </EmptyDescription>
                      </EmptyHeader>
                    </Empty>
@@ -1759,7 +1759,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                            {saveProfiles.find(p => p.active)?.title || t("luducard-none", "Nenhum (Usando saves soltos)")}
                          </span>
                          <span>
-                           {t("luducard-active-profile-banner-desc", "Ao alternar de perfil, os saves atuais da pasta do jogo sÃ£o guardados automaticamente no perfil ativo anterior para evitar perda de dados.")}
+                           {t("luducard-active-profile-banner-desc", "Ao alternar de perfil, os saves atuais da pasta do jogo são guardados automaticamente no perfil ativo anterior para evitar perda de dados.")}
                          </span>
                        </div>
                      </div>
@@ -1820,7 +1820,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                                variant="ghost"
                                disabled={p.active || switchingProfileId !== null}
                                onClick={() => handleDeleteSaveProfile(p.id, p.title)}
-                               title={p.active ? t("luducard-cant-delete-active", "NÃ£o Ã© possÃ­vel deletar o perfil ativo") : t("luducard-delete-profile", "Excluir perfil")}
+                               title={p.active ? t("luducard-cant-delete-active", "Não é possível deletar o perfil ativo") : t("luducard-delete-profile", "Excluir perfil")}
                                className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 cursor-pointer disabled:opacity-30"
                              >
                                <Trash2 className="size-4" />
@@ -1845,7 +1845,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
               <div>
                 <CardTitle className="text-base">Detalhes do Backup Local</CardTitle>
-                <CardDescription className="text-xs">InformaÃ§Ãµes da versÃ£o e notas de campanha.</CardDescription>
+                <CardDescription className="text-xs">Informações da versão e notas de campanha.</CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -1860,7 +1860,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               <div className="flex flex-col gap-1.5 bg-muted/20 border border-border p-3.5 rounded-xl text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Data e Hora:</span>
-                  <span className="font-semibold text-foreground">{selectedLocalBackup.date} Ã s {selectedLocalBackup.time}</span>
+                  <span className="font-semibold text-foreground">{selectedLocalBackup.date} às {selectedLocalBackup.time}</span>
                 </div>
                 <div className="flex justify-between mt-1">
                   <span className="text-muted-foreground">Tipo de Backup:</span>
@@ -1876,12 +1876,12 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="local-backup-note" className="text-xs font-semibold text-muted-foreground">
-                  Notas de Campanha / DescriÃ§Ã£o do Progresso
+                  Notas de Campanha / Descrição do Progresso
                 </label>
                 <textarea
                   id="local-backup-note"
                   rows={4}
-                  placeholder="Ex: Parei apÃ³s derrotar o dragÃ£o. NÃ­vel 45, build de destreza..."
+                  placeholder="Ex: Parei após derrotar o dragão. Nível 45, build de destreza..."
                   value={localNote}
                   onChange={(e) => setLocalNote(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary whitespace-pre-wrap leading-relaxed"
@@ -1915,10 +1915,10 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               <div>
                 <CardTitle className="text-base flex items-center gap-1.5">
                   <Share2 className="size-4.5 text-primary" />
-                  Compartilhar Preset de ConfiguraÃ§Ã£o
+                  Compartilhar Preset de Configuração
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Salve e envie suas otimizaÃ§Ãµes locais para a comunidade.
+                  Salve e envie suas otimizações locais para a comunidade.
                 </CardDescription>
               </div>
               <Button
@@ -1937,7 +1937,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 <div className="flex flex-col gap-1.5 border border-border rounded-xl p-3 bg-muted/10">
                   <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                     <FolderSync className="size-3.5 text-primary" />
-                    Arquivos de ConfiguraÃ§Ã£o Detectados:
+                    Arquivos de Configuração Detectados:
                   </label>
                   {loadingConfigs ? (
                     <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
@@ -1947,7 +1947,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   ) : configFiles.length === 0 ? (
                     <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 p-2.5 rounded-lg flex items-start gap-1.5">
                       <AlertTriangle className="size-4 shrink-0" />
-                      NÃ£o foi possÃ­vel detectar arquivos de configuraÃ§Ã£o usando o mapeamento do Ludosavi.
+                      Não foi possível detectar arquivos de configuração usando o mapeamento do Ludosavi.
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1.5 max-h-[100px] overflow-y-auto border border-border/60 rounded bg-background p-2">
@@ -1981,7 +1981,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 <div className="grid gap-3.5 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
                     <label htmlFor="preset-title" className="text-xs font-semibold text-muted-foreground">
-                      TÃ­tulo do Preset *
+                      Título do Preset *
                     </label>
                     <input
                       id="preset-title"
@@ -2001,7 +2001,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                     <input
                       id="preset-author"
                       type="text"
-                      placeholder="Ex: AnÃ´nimo"
+                      placeholder="Ex: Anônimo"
                       value={authorName}
                       onChange={(e) => setAuthorName(e.target.value)}
                       className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2039,12 +2039,12 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="preset-desc" className="text-xs font-semibold text-muted-foreground">
-                    DescriÃ§Ã£o (VersÃ£o do jogo, melhorias de FPS estimadas, etc.)
+                    Descrição (Versão do jogo, melhorias de FPS estimadas, etc.)
                   </label>
                   <textarea
                     id="preset-desc"
                     rows={2}
-                    placeholder="Ex: Aumenta cerca de 15% do FPS na cidade. Testado na versÃ£o 1.63."
+                    placeholder="Ex: Aumenta cerca de 15% do FPS na cidade. Testado na versão 1.63."
                     value={presetDesc}
                     onChange={(e) => setPresetDesc(e.target.value)}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary whitespace-pre-wrap"
@@ -2055,7 +2055,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                 <div className="flex flex-col gap-2.5 border border-border rounded-xl p-3 bg-muted/10">
                   <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                     <Cpu className="size-3.5 text-primary" />
-                    Hardware Detectado (EspecificaÃ§Ãµes do Autor):
+                    Hardware Detectado (Especificações do Autor):
                   </span>
                   {loadingHardware ? (
                     <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
@@ -2075,7 +2075,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label htmlFor="hw-gpu" className="text-[10px] font-semibold text-muted-foreground">Placa de VÃ­deo (GPU)</label>
+                        <label htmlFor="hw-gpu" className="text-[10px] font-semibold text-muted-foreground">Placa de Vídeo (GPU)</label>
                         <input
                           id="hw-gpu"
                           type="text"
@@ -2085,7 +2085,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label htmlFor="hw-ram" className="text-[10px] font-semibold text-muted-foreground">MemÃ³ria RAM</label>
+                        <label htmlFor="hw-ram" className="text-[10px] font-semibold text-muted-foreground">Memória RAM</label>
                         <input
                           id="hw-ram"
                           type="text"
@@ -2143,13 +2143,13 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             </CardHeader>
             <CardContent className="pt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-muted-foreground font-semibold">TÃ­tulo do Preset:</span>
+                <span className="text-xs text-muted-foreground font-semibold">Título do Preset:</span>
                 <span className="text-sm font-bold text-foreground leading-snug">{selectedDetailPreset.title}</span>
               </div>
 
               {selectedDetailPreset.description && (
                 <div className="flex flex-col gap-1 bg-muted/20 border border-border p-3 rounded-lg">
-                  <span className="text-[11px] text-muted-foreground font-semibold">DescriÃ§Ã£o / OtimizaÃ§Ãµes:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">Descrição / Otimizações:</span>
                   <div className="max-h-[160px] overflow-y-auto pr-1.5 scrollbar-thin">
                     <p className="text-xs leading-relaxed text-muted-foreground mt-0.5 whitespace-pre-wrap">{selectedDetailPreset.description}</p>
                   </div>
@@ -2178,7 +2178,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
               <div className="grid grid-cols-2 gap-3 bg-muted/20 border border-border p-3.5 rounded-xl text-xs">
                 <div className="flex flex-col gap-0.5 col-span-2">
-                  <span className="text-muted-foreground font-semibold">EspecificaÃ§Ãµes do Autor:</span>
+                  <span className="text-muted-foreground font-semibold">Especificações do Autor:</span>
                   <span className="font-mono text-foreground mt-0.5 leading-relaxed">
                     {selectedDetailPreset.cpu ? `${selectedDetailPreset.cpu} | ` : ""}{selectedDetailPreset.gpu ? `${selectedDetailPreset.gpu} | ` : ""}{selectedDetailPreset.ram || ""}
                   </span>
@@ -2217,7 +2217,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                   Criar Preset Local
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Salve as configuraÃ§Ãµes atuais deste jogo em um perfil local.
+                  Salve as configurações atuais deste jogo em um perfil local.
                 </CardDescription>
               </div>
               <Button
@@ -2231,22 +2231,22 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             </CardHeader>
             <CardContent className="pt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="local-preset-title" className="text-xs font-semibold text-muted-foreground">TÃ­tulo do Preset *</label>
+                <label htmlFor="local-preset-title" className="text-xs font-semibold text-muted-foreground">Título do Preset *</label>
                 <input
                   id="local-preset-title"
                   type="text"
-                  placeholder="Ex: Minha OtimizaÃ§Ã£o 60fps ou Controles de Voo"
+                  placeholder="Ex: Minha Otimização 60fps ou Controles de Voo"
                   value={newLocalTitle}
                   onChange={(e) => setNewLocalTitle(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="local-preset-desc" className="text-xs font-semibold text-muted-foreground">DescriÃ§Ã£o</label>
+                <label htmlFor="local-preset-desc" className="text-xs font-semibold text-muted-foreground">Descrição</label>
                 <textarea
                   id="local-preset-desc"
                   rows={2.5}
-                  placeholder="Descreva o que este preset altera (ex: reduz sombras volumÃ©tricas para melhor performance)."
+                  placeholder="Descreva o que este preset altera (ex: reduz sombras volumétricas para melhor performance)."
                   value={newLocalDesc}
                   onChange={(e) => setNewLocalDesc(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2256,7 +2256,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                   <FolderSync className="size-3.5 text-primary" />
-                  Arquivos IncluÃ­dos (Detectados automaticamente):
+                  Arquivos Incluídos (Detectados automaticamente):
                 </span>
                 {loadingConfigs ? (
                   <div className="text-xs text-muted-foreground py-1">Mapeando arquivos...</div>
@@ -2268,7 +2268,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       const name = c.split(/[\\/]/).pop()
                       return (
                         <span key={c} className="text-[10px] text-muted-foreground font-mono truncate" title={c}>
-                          â€¢ {name}
+                          ⬢ {name}
                         </span>
                       )
                     })}
@@ -2335,12 +2335,12 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="save-profile-desc" className="text-xs font-semibold text-muted-foreground">
-                  {t("luducard-profile-desc-label", "DescriÃ§Ã£o")}
+                  {t("luducard-profile-desc-label", "Descrição")}
                 </label>
                 <textarea
                   id="save-profile-desc"
                   rows={2.5}
-                  placeholder={t("luducard-profile-desc-placeholder", "Descreva o propÃ³sito deste perfil (ex: jogando com a classe guerreiro).")}
+                  placeholder={t("luducard-profile-desc-placeholder", "Descreva o propósito deste perfil (ex: jogando com a classe guerreiro).")}
                   value={newProfileDesc}
                   onChange={(e) => setNewProfileDesc(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2349,7 +2349,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
               <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3 text-xs">
                 <span className="font-semibold text-muted-foreground flex items-center gap-1">
-                  {t("luducard-creation-options", "OpÃ§Ãµes de InicializaÃ§Ã£o:")}
+                  {t("luducard-creation-options", "Opções de Inicialização:")}
                 </span>
 
                 <div className="flex flex-col gap-2.5">
@@ -2364,7 +2364,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                     <div className="flex flex-col gap-0.5">
                       <span>{t("luducard-clone-current-saves", "Clonar progresso atual")}</span>
                       <span className="text-[10px] text-muted-foreground font-normal">
-                        {t("luducard-clone-current-saves-desc", "Copia os saves que atualmente estÃ£o na pasta do jogo para este perfil (recomendado).")}
+                        {t("luducard-clone-current-saves-desc", "Copia os saves que atualmente estão na pasta do jogo para este perfil (recomendado).")}
                       </span>
                     </div>
                   </label>
@@ -2378,9 +2378,9 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
                       className="mt-0.5 text-primary focus:ring-primary"
                     />
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-amber-500">{t("luducard-start-empty", "ComeÃ§ar do zero (Vazio)")}</span>
+                      <span className="text-amber-500">{t("luducard-start-empty", "Começar do zero (Vazio)")}</span>
                       <span className="text-[10px] text-muted-foreground font-normal">
-                        {t("luducard-start-empty-desc", "A pasta de saves atual do jogo serÃ¡ limpa para vocÃª iniciar um progresso 100% novo.")}
+                        {t("luducard-start-empty-desc", "A pasta de saves atual do jogo será limpa para você iniciar um progresso 100% novo.")}
                       </span>
                     </div>
                   </label>

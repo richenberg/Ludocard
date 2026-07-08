@@ -1,43 +1,43 @@
 ludusavi = Ludusavi
-language = JÄ™zyk
+language = Język
 game-name = Nazwa
 total-games = Gry
 file-size = Rozmiar
 file-location = Lokalizacja
-overall = CaÅ‚oÅ›ciowo
+overall = Całościowo
 status = Status
 cli-unrecognized-games = Brak informacji dla tych gier:
-cli-unable-to-request-confirmation = BÅ‚Ä…d Å¼Ä…dania potwierdzenia.
-    .winpty-workaround = JeÅ›li korzystasz z emulatora Bash (takiego jak Git Bash), sprÃ³buj uruchomiÄ‡ winpty.
-cli-backup-id-with-multiple-games = Nie moÅ¼na okreÅ›liÄ‡ identyfikatora kopii zapasowej podczas przywracania wielu gier.
-cli-invalid-backup-id = NieprawidÅ‚owy identyfikator kopii zapasowej.
+cli-unable-to-request-confirmation = Błąd żądania potwierdzenia.
+    .winpty-workaround = Jeśli korzystasz z emulatora Bash (takiego jak Git Bash), spróbuj uruchomić winpty.
+cli-backup-id-with-multiple-games = Nie można określić identyfikatora kopii zapasowej podczas przywracania wielu gier.
+cli-invalid-backup-id = Nieprawidłowy identyfikator kopii zapasowej.
 badge-failed = NIEPOWODZENIE
 badge-duplicates = DUPLIKATY
 badge-duplicated = ZDUPLIKOWANE
 badge-ignored = ZIGNOROWANE
 badge-redirected-from = Z: { $path }
 badge-redirecting-to = DO: { $path }
-some-entries-failed = BÅ‚Ä…d przetwarzania niektÃ³rych elementÃ³w; sprawdÅº { badge-failed } w anych wyjÅ›ciowych po wiÄ™cej szczegÃ³Å‚Ã³w. Upewnij siÄ™, Å¼e masz dostÄ™p do tych plikÃ³w oraz, czy ich Å›cieÅ¼ki sÄ… zbyt dÅ‚ugie.
+some-entries-failed = Błąd przetwarzania niektórych elementów; sprawdź { badge-failed } w anych wyjściowych po więcej szczegółów. Upewnij się, że masz dostęp do tych plików oraz, czy ich ścieżki są zbyt długie.
 cli-game-line-item-redirected = Przekierowano z: { $path }
 cli-game-line-item-redirecting = Przekierowywanie do: { $path }
-button-backup = UtwÃ³rz kopiÄ™
-button-preview = PodglÄ…d
-button-restore = PrzywrÃ³Ä‡
+button-backup = Utwórz kopię
+button-preview = Podgląd
+button-restore = Przywróć
 button-nav-backup = TRYB TWORZENIA KOPII
 button-nav-restore = TRYB PRZYWRACANIA
 button-nav-custom-games = NIESTANDARDOWE GRY
-button-nav-other = POZOSTAÅE
-button-add-game = Dodaj grÄ™
+button-nav-other = POZOSTAŁE
+button-add-game = Dodaj grę
 button-continue = Kontynuuj
 button-cancel = Anuluj
 button-cancelling = Anulowanie...
 button-okay = OK
 button-select-all = Zaznacz wszystkie
 button-deselect-all = Odznacz wszystkie
-button-enable-all = WÅ‚Ä…cz wszystkie
-button-disable-all = WyÅ‚Ä…cz wszystkie
+button-enable-all = Włącz wszystkie
+button-disable-all = Wyłącz wszystkie
 button-customize = Dostosuj
-button-exit = WyjdÅº
+button-exit = Wyjdź
 button-comment = Komentarz
 button-lock = Zablokuj
 button-unlock = Odblokuj
@@ -48,24 +48,24 @@ button-override-manifest = Nadpisanie manifestu
 button-extend-manifest = Rozszerzenie manifestu
 button-sort = Sortowanie
 button-download = Pobierz
-button-upload = WyÅ›lij
+button-upload = Wyślij
 button-ignore = Ignoruj
-no-roots-are-configured = Dodaj kilka katalogÃ³w gÅ‚Ã³wnych, aby utworzyÄ‡ kopiÄ™ wiÄ™kszej iloÅ›ci danych.
-config-is-invalid = BÅ‚Ä…d: Plik konfiguracji jest nieprawidÅ‚owy.
-manifest-is-invalid = BÅ‚Ä…d: Plik manifest jest nieprawidÅ‚owy.
-manifest-cannot-be-updated = BÅ‚Ä…d: Nie moÅ¼na sprawdziÄ‡ aktualizacji dla pliku manifest. Czy masz poÅ‚Ä…czenie z Internetem?
-cannot-prepare-backup-target = BÅ‚Ä…d: Nie moÅ¼na przygotowaÄ‡ docelowej kopii zapasowej (utworzyÄ‡ lub oczyÅ›ciÄ‡ folderu). JeÅ›li folder jest otwarty w eksploratorze plikÃ³w, zamknij go: { $path }
-restoration-source-is-invalid = BÅ‚Ä…d: Å¹rÃ³dÅ‚o przywracania jest nieprawidÅ‚owe (nie istnieje lub nie jest katalogiem) Upewnij siÄ™, Å¼e lokalizacja jest prawidÅ‚owa: { $path }
-registry-issue = BÅ‚Ä…d: NiektÃ³re pozycje rejestru zostaÅ‚y pominiÄ™te.
-unable-to-browse-file-system = BÅ‚Ä…d. Nie moÅ¼na przeglÄ…daÄ‡ na Twoim systemie.
-unable-to-open-directory = BÅ‚Ä…d: Nie moÅ¼na otworzyÄ‡ katalogu:
-unable-to-open-url = BÅ‚Ä…d: Nie moÅ¼na otworzyÄ‡ adresu URL:
-unable-to-configure-cloud = Nie udaÅ‚o siÄ™ skonfigurowaÄ‡ chmury.
-unable-to-synchronize-with-cloud = Nie moÅ¼na zsynchronizowaÄ‡ z chmurÄ….
-cloud-synchronize-conflict = Kopia lokalna rÃ³Å¼ni siÄ™ od tej w chmurze. WyÅ›lij lub pobierz odpowiedniÄ… wersjÄ™, aby rozwiÄ…zaÄ‡ problem.
+no-roots-are-configured = Dodaj kilka katalogów głównych, aby utworzyć kopię większej ilości danych.
+config-is-invalid = Błąd: Plik konfiguracji jest nieprawidłowy.
+manifest-is-invalid = Błąd: Plik manifest jest nieprawidłowy.
+manifest-cannot-be-updated = Błąd: Nie można sprawdzić aktualizacji dla pliku manifest. Czy masz połączenie z Internetem?
+cannot-prepare-backup-target = Błąd: Nie można przygotować docelowej kopii zapasowej (utworzyć lub oczyścić folderu). Jeśli folder jest otwarty w eksploratorze plików, zamknij go: { $path }
+restoration-source-is-invalid = Błąd: Źródło przywracania jest nieprawidłowe (nie istnieje lub nie jest katalogiem) Upewnij się, że lokalizacja jest prawidłowa: { $path }
+registry-issue = Błąd: Niektóre pozycje rejestru zostały pominięte.
+unable-to-browse-file-system = Błąd. Nie można przeglądać na Twoim systemie.
+unable-to-open-directory = Błąd: Nie można otworzyć katalogu:
+unable-to-open-url = Błąd: Nie można otworzyć adresu URL:
+unable-to-configure-cloud = Nie udało się skonfigurować chmury.
+unable-to-synchronize-with-cloud = Nie można zsynchronizować z chmurą.
+cloud-synchronize-conflict = Kopia lokalna różni się od tej w chmurze. Wyślij lub pobierz odpowiednią wersję, aby rozwiązać problem.
 command-unlaunched = Polecenia nie uruchomiono: { $command }
-command-terminated = Polecenie zakoÅ„czone nagle: { $command }
-command-failed = Polecenie nie powiodÅ‚o siÄ™ z kodem { $code }: { $command }
+command-terminated = Polecenie zakończone nagle: { $command }
+command-failed = Polecenie nie powiodło się z kodem { $code }: { $command }
 processed-games =
     { $total-games } { $total-games ->
         [one] gra
@@ -77,47 +77,47 @@ processed-games-subset =
        *[other] gier
     }
 processed-size-subset = { $processed-size } z { $total-size }
-field-backup-target = UtwÃ³rz kopiÄ™ w:
-field-restore-source = PrzywrÃ³Ä‡ z:
-field-custom-files = ÅšcieÅ¼ki:
+field-backup-target = Utwórz kopię w:
+field-restore-source = Przywróć z:
+field-custom-files = Ścieżki:
 field-custom-registry = Rejestr:
 field-sort = Sortuj:
 field-redirect-source =
-    .placeholder = Å¹rÃ³dÅ‚o (oryginalna lokalizacja)
+    .placeholder = Źródło (oryginalna lokalizacja)
 field-redirect-target =
     .placeholder = Cel (nowa lokalizacja)
-field-roots = Å¹rÃ³dÅ‚o:
+field-roots = Źródło:
 field-backup-excluded-items = Wykluczenia kopii zapasowych:
 field-redirects = Przekierowania:
 # This appears next to the number of full backups that you'd like to keep.
 # A full backup includes all save files for a game.
-field-retention-full = PeÅ‚ne:
+field-retention-full = Pełne:
 # This appears next to the number of differential backups that you'd like to keep.
 # A differential backup includes only the files that have changed since the last full backup.
-field-retention-differential = RÃ³Å¼nicowe:
+field-retention-differential = Różnicowe:
 field-backup-format = Format:
 field-backup-compression = Kompresja:
 # The compression level determines how much compresison we perform.
 field-backup-compression-level = Poziom kompresji:
-label-manifest = Wzory Å›cieÅ¼ek zapisu
+label-manifest = Wzory ścieżek zapisu
 # This shows the time when we checked for an update to the manifest.
 label-checked = Sprawdzono
 # This shows the time when we found an update to the manifest.
 label-updated = Zaktualizowano
 label-new = Nowy
-label-removed = UsuniÄ™to
+label-removed = Usunięto
 label-comment = Komentarz
 label-unchanged = Bez zmian
 label-backup = Kopia zapasowa
 label-scan = Skan
 label-filter = Filtruj
 label-unique = Unikalne
-label-complete = PeÅ‚ny
-label-partial = CzÄ™Å›ciowy
+label-complete = Pełny
+label-partial = Częściowy
 label-enabled = Aktywny
 label-disabled = Nieaktywny
 # https://en.wikipedia.org/wiki/Thread_(computing)
-label-threads = WÄ…tki
+label-threads = Wątki
 label-cloud = Chmura
 # A "remote" is what Rclone calls cloud systems like Google Drive.
 label-remote = Zdalny
@@ -132,12 +132,12 @@ label-url = URL
 label-host = Host
 # https://en.wikipedia.org/wiki/Port_(computer_networking)
 label-port = Port
-label-username = Nazwa uÅ¼ytkownika
-label-password = HasÅ‚o
+label-username = Nazwa użytkownika
+label-password = Hasło
 # This is a specific website or service that provides some cloud functionality.
 # For example, Nextcloud and Owncloud are providers of WebDAV services.
-label-provider = UsÅ‚ugodawca
-label-custom = WÅ‚asny
+label-provider = Usługodawca
+label-custom = Własny
 label-none = Brak
 label-change-count = Zmiany: { $total }
 label-unscanned = Nieprzeskanowane
@@ -148,9 +148,9 @@ label-game = Gra
 label-alias = Alias
 label-original-name = Oryginalna nazwa
 # Which manifest a game's data came from
-label-source = Å¹rÃ³dÅ‚o
+label-source = Źródło
 # This refers to the main Ludusavi manifest: https://github.com/mtkennerly/ludusavi-manifest
-label-primary-manifest = GÅ‚Ã³wny manifest
+label-primary-manifest = Główny manifest
 # This refers to how we integrate a custom game with the manifest data.
 label-integration = Integracja
 # This is a folder name where a specific game is installed
@@ -167,7 +167,7 @@ store-origin = Origin
 store-prime = Prime Gaming
 store-steam = Steam
 store-uplay = Uplay
-store-other-home = Folder gÅ‚Ã³wny
+store-other-home = Folder główny
 # This would be a folder acting as a virtual C: drive, created by Wine.
 store-other-wine = Prefiks Wine
 # This would be a folder with typical Windows system folders,
@@ -179,7 +179,7 @@ store-other-linux = Dysk Linux
 # This would be a folder with typical Mac system folders,
 # like "Applications" and "Users".
 store-other-mac = Dysk Mac
-store-other = PozostaÅ‚e
+store-other = Pozostałe
 backup-format-simple = Prosty
 backup-format-zip = Zip
 compression-none = Brak
@@ -191,43 +191,43 @@ theme = Motyw
 theme-light = Jasny
 theme-dark = Ciemny
 redirect-bidirectional = Dwukierunkowy
-reverse-redirects-when-restoring = Odwrotna sekwencja przekierowaÅ„ podczas przywracania
-show-disabled-games = PokaÅ¼ wyÅ‚Ä…czone gry
-show-unchanged-games = PokaÅ¼ niezmienione gry
-show-unscanned-games = PokaÅ¼ nieprzeskanowane gry
-override-max-threads = ZastÄ…p maksymalnÄ… liczbÄ™ wÄ…tkÃ³w
+reverse-redirects-when-restoring = Odwrotna sekwencja przekierowań podczas przywracania
+show-disabled-games = Pokaż wyłączone gry
+show-unchanged-games = Pokaż niezmienione gry
+show-unscanned-games = Pokaż nieprzeskanowane gry
+override-max-threads = Zastąp maksymalną liczbę wątków
 synchronize-automatically = Synchronizuj automatycznie
-prefer-alias-display = WyÅ›wietlaj alias zamiast oryginalnej nazwy
-skip-unconstructive-backups = PomiÅ„ kopiÄ™ zapasowÄ…, gdy dane zostanÄ… usuniÄ™te, ale nie dodane lub zaktualizowane
-explanation-for-exclude-store-screenshots = Nie zawieraj w kopiach zapasowych zrzutÃ³w ekranu dla konkretnego sklepu
-explanation-for-exclude-cloud-games = Na tych platformach nie naleÅ¼y tworzyÄ‡ kopii zapasowych gier z obsÅ‚ugÄ… chmury
-consider-doing-a-preview = JeÅ›li jeszcze tego nie zrobiono, rozwaÅ¼ wykonanie pierwszego testu, aby zobaczyÄ‡, czy wszystko dziaÅ‚a.
+prefer-alias-display = Wyświetlaj alias zamiast oryginalnej nazwy
+skip-unconstructive-backups = Pomiń kopię zapasową, gdy dane zostaną usunięte, ale nie dodane lub zaktualizowane
+explanation-for-exclude-store-screenshots = Nie zawieraj w kopiach zapasowych zrzutów ekranu dla konkretnego sklepu
+explanation-for-exclude-cloud-games = Na tych platformach nie należy tworzyć kopii zapasowych gier z obsługą chmury
+consider-doing-a-preview = Jeśli jeszcze tego nie zrobiono, rozważ wykonanie pierwszego testu, aby zobaczyć, czy wszystko działa.
 confirm-backup =
-    Czy na pewno chcesz kontynuowaÄ‡ z kopiÄ… zapasowÄ…? { $path-action ->
-        [merge] Nowe dane zapisu zostanÄ… scalone z folderem docelowym:
+    Czy na pewno chcesz kontynuować z kopią zapasową? { $path-action ->
+        [merge] Nowe dane zapisu zostaną scalone z folderem docelowym:
        *[create] Folder docelowy zostanie utworzony:
     }
 confirm-restore =
-    Czy na pewno chcesz kontynuowaÄ‡ przywracanie?
-    Jakiekolwiek bieÅ¼Ä…ce pliki z kopiÄ… zapasowÄ… zostanÄ… zastÄ…pione:
+    Czy na pewno chcesz kontynuować przywracanie?
+    Jakiekolwiek bieżące pliki z kopią zapasową zostaną zastąpione:
 confirm-cloud-upload =
-    Czy chcesz zastÄ…piÄ‡ pliki w chmurze plikami lokalnymi?
-    Twoje pliki ({ $cloud-path }) stanÄ… siÄ™ dokÅ‚adnÄ… kopiÄ… plikÃ³w lokalnych ({ $local-path }).
-    Pliki w chmurze zostanÄ… w razie potrzeby zaktualizowane lub usuniÄ™te.
+    Czy chcesz zastąpić pliki w chmurze plikami lokalnymi?
+    Twoje pliki ({ $cloud-path }) staną się dokładną kopią plików lokalnych ({ $local-path }).
+    Pliki w chmurze zostaną w razie potrzeby zaktualizowane lub usunięte.
 confirm-cloud-download =
-    Czy chcesz zastÄ…piÄ‡ pliki lokalne plikami w chmurze?
-    Twoje lokalne pliki ({ $local-path }) stanÄ… siÄ™ dokÅ‚adnÄ… kopiÄ… Twoich plikÃ³w w chmurze ({ $cloud-path }).
-    Pliki lokalne zostanÄ… w razie potrzeby zaktualizowane lub usuniÄ™te.
-confirm-add-missing-roots = Czy to sÄ… katalogi gÅ‚Ã³wne?
-no-missing-roots = Nie znaleziono wiÄ™cej katalogÃ³w gÅ‚Ã³wnych.
-loading = Åadowanie...
+    Czy chcesz zastąpić pliki lokalne plikami w chmurze?
+    Twoje lokalne pliki ({ $local-path }) staną się dokładną kopią Twoich plików w chmurze ({ $cloud-path }).
+    Pliki lokalne zostaną w razie potrzeby zaktualizowane lub usunięte.
+confirm-add-missing-roots = Czy to są katalogi główne?
+no-missing-roots = Nie znaleziono więcej katalogów głównych.
+loading = Ładowanie...
 preparing-backup-target = Przygotowywanie katalogu kopii zapasowej...
 updating-manifest = Aktualizowanie manifestu...
 no-cloud-changes = Nie ma zmian do synchronizacji
-backups-are-valid = Twoje kopie zapasowe sÄ… prawidÅ‚owe.
+backups-are-valid = Twoje kopie zapasowe są prawidłowe.
 backups-are-invalid =
-    Kopie zapasowe tych gier wydajÄ… siÄ™ nieprawidÅ‚owe.
-    Czy chcesz utworzyÄ‡ nowe peÅ‚ne kopie zapasowe?
+    Kopie zapasowe tych gier wydają się nieprawidłowe.
+    Czy chcesz utworzyć nowe pełne kopie zapasowe?
 saves-found = Znaleziono dane zapisu.
 no-saves-found = Nie znaleziono danych zapisu.
 # This is tacked on to form something like "Back up (no confirmation)",
@@ -235,25 +235,25 @@ no-saves-found = Nie znaleziono danych zapisu.
 suffix-no-confirmation = bez potwierdzenia
 # This is shown when a setting will only take effect after closing and reopening Ludusavi.
 suffix-restart-required = wymagane ponowne uruchomienie
-prefix-error = BÅ‚Ä…d: { $message }
-prefix-warning = OstrzeÅ¼enie: { $message }
-cloud-app-unavailable = Kopie zapasowe w chmurze sÄ… wyÅ‚Ä…czone, poniewaÅ¼ { $app } jest niedostÄ™pny.
-cloud-not-configured = Kopie zapasowe w chmurze sÄ… wyÅ‚Ä…czone, poniewaÅ¼ nie skonfigurowano Å¼adnego systemu w chmurze.
-cloud-path-invalid = Kopie zapasowe w chmurze sÄ… wyÅ‚Ä…czone, poniewaÅ¼ Å›cieÅ¼ka kopii zapasowej jest nieprawidÅ‚owa.
+prefix-error = Błąd: { $message }
+prefix-warning = Ostrzeżenie: { $message }
+cloud-app-unavailable = Kopie zapasowe w chmurze są wyłączone, ponieważ { $app } jest niedostępny.
+cloud-not-configured = Kopie zapasowe w chmurze są wyłączone, ponieważ nie skonfigurowano żadnego systemu w chmurze.
+cloud-path-invalid = Kopie zapasowe w chmurze są wyłączone, ponieważ ścieżka kopii zapasowej jest nieprawidłowa.
 game-is-unrecognized = Ludusavi nie rozpoznaje tej gry.
-game-has-nothing-to-restore = Ta gra nie ma kopii zapasowej do przywrÃ³cenia.
-launch-game-after-error = Czy mimo to uruchomiÄ‡ grÄ™?
-game-did-not-launch = Nie udaÅ‚o siÄ™ uruchomiÄ‡ gry.
+game-has-nothing-to-restore = Ta gra nie ma kopii zapasowej do przywrócenia.
+launch-game-after-error = Czy mimo to uruchomić grę?
+game-did-not-launch = Nie udało się uruchomić gry.
 backup-is-newer-than-current-data = The existing backup is newer than the current data.
 backup-is-older-than-current-data = The existing backup is older than the current data.
 back-up-specific-game =
-    .confirm = StworzyÄ‡ kopiÄ™ zapisÃ³w dla { $game }?
-    .failed = Nie udaÅ‚o siÄ™ utworzyÄ‡ kopii zapisÃ³w dla { $game }
+    .confirm = Stworzyć kopię zapisów dla { $game }?
+    .failed = Nie udało się utworzyć kopii zapisów dla { $game }
 restore-specific-game =
-    .confirm = PrzywrÃ³ciÄ‡ zapisy dla { $game }?
-    .failed = Nie udaÅ‚o siÄ™ przywrÃ³ciÄ‡ zapisÃ³w dla { $game }
+    .confirm = Przywrócić zapisy dla { $game }?
+    .failed = Nie udało się przywrócić zapisów dla { $game }
 new-version-check = Automatyczne sprawdzanie aktualizacji aplikacji
-new-version-available = DostÄ™pna jest aktualizacja aplikacji: { $version }. Chcesz zobaczyÄ‡ informacje o wydaniu?
-custom-game-will-override = Ta niestandardowa gra zastÄ™puje wpis manifestu
+new-version-available = Dostępna jest aktualizacja aplikacji: { $version }. Chcesz zobaczyć informacje o wydaniu?
+custom-game-will-override = Ta niestandardowa gra zastępuje wpis manifestu
 custom-game-will-extend = Ta niestandardowa gra rozszerza wpis manifestu
-operation-will-only-include-listed-games = Spowoduje to przetworzenie tylko tych gier, ktÃ³re aktualnie znajdujÄ… siÄ™ na liÅ›cie
+operation-will-only-include-listed-games = Spowoduje to przetworzenie tylko tych gier, które aktualnie znajdują się na liście

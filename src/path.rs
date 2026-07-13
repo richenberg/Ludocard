@@ -222,7 +222,7 @@ impl std::hash::Hash for StrictPath {
 
 impl std::fmt::Debug for StrictPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "StrictPath {{ raw: {:?}, basis: {:?} }}", &self.raw, &self.basis)
+        write!(f, "StrictPath {{ raw: {:?}, basis: {:?} }}", self.raw, self.basis)
     }
 }
 
@@ -267,7 +267,7 @@ impl StrictPath {
 
     pub fn as_std_path_buf(&self) -> Result<std::path::PathBuf, std::io::Error> {
         Ok(std::path::PathBuf::from(&self.interpret().map_err(|_| {
-            std::io::Error::other(format!("Cannot interpret path: {:?}", &self))
+            std::io::Error::other(format!("Cannot interpret path: {:?}", self))
         })?))
     }
 
@@ -658,7 +658,7 @@ impl StrictPath {
 
     pub fn joined(&self, other: impl AsRef<str>) -> Self {
         Self {
-            raw: format!("{}/{}", &self.raw, other.as_ref()).replace('\\', "/"),
+            raw: format!("{}/{}", self.raw, other.as_ref()).replace('\\', "/"),
             basis: self.basis.clone(),
             canonical: Arc::new(Mutex::new(None)),
         }
@@ -884,13 +884,13 @@ impl StrictPath {
     }
 
     pub fn copy_to_path(&self, context: &str, target_file: &StrictPath) -> Result<(), std::io::Error> {
-        log::trace!("[{context}] copy {:?} -> {:?}", &self, &target_file);
+        log::trace!("[{context}] copy {:?} -> {:?}", self, target_file);
 
         if let Err(e) = target_file.create_parent_dir() {
             log::error!(
                 "[{context}] unable to create parent directories: {:?} -> {:?} | {e}",
-                &self,
-                &target_file
+                self,
+                target_file
             );
             return Err(e);
         }
@@ -898,7 +898,7 @@ impl StrictPath {
         if let Err(e) = target_file.unset_readonly() {
             log::warn!(
                 "[{context}] failed to unset read-only on target: {:?} | {e}",
-                &target_file
+                target_file
             );
             return Err(std::io::Error::other("Failed to unset read-only"));
         }

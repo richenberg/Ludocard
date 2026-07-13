@@ -183,6 +183,8 @@ fn main() {
             commands::switch_save_profile,
             commands::delete_save_profile,
             commands::clear_app_data,
+            commands::update_game_save_path,
+            commands::reset_game_save_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Luducard");

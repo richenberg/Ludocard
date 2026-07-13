@@ -12,6 +12,7 @@ import {
   ChevronDown,
   HardDrive,
   Cloud,
+  Gamepad2,
 } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -40,10 +41,9 @@ interface FrontendEmulator {
 
 export function ScanClient() {
   const { t } = useI18n()
-  const { games, loadGames, scanGames } = useLibrary()
-  const [scanning, setScanning] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [hasResults, setHasResults] = useState(false)
+  const { games, loadGames, scanGames, scanning, scanProgress } = useLibrary()
+  const [scanError, setScanError] = useState(false)
+  const hasResults = scanProgress.phase === "done" && scanProgress.gamesFound > 0
   const [folders, setFolders] = useState<{ id: string; path: string; type: string; games: number }[]>([])
   const [emulators, setEmulators] = useState<FrontendEmulator[]>([])
   const [foldersLoaded, setFoldersLoaded] = useState(false)
@@ -199,43 +199,35 @@ export function ScanClient() {
     }
   }, [foldersLoaded, folders]);
 
-  const getScanStatusText = (prog: number) => {
-    if (prog < 30) {
-      return t("luducard-scan-status-1", "Buscando diretórios de jogos...");
-    } else if (prog < 60) {
-      return t("luducard-scan-status-2", "Analisando saves e arquivos...");
-    } else if (prog < 85) {
-      return t("luducard-scan-status-3", "Calculando metadados e tamanhos...");
-    } else {
-      return t("luducard-scan-status-4", "Finalizando e salvando cache...");
+  const getScanStatusText = (phase: string) => {
+    switch (phase) {
+      case "scanning-emulators":
+        return t("luducard-scan-phase-emulators", "Escaneando emuladores...")
+      case "scanning-saves":
+        return t("luducard-scan-phase-saves", "Buscando saves na filesystem...")
+      case "processing-results":
+        return t("luducard-scan-phase-processing", "Processando resultados...")
+      case "game-found":
+        return t("luducard-scan-phase-game", "Analisando jogos encontrados...")
+      case "finalizing":
+        return t("luducard-scan-phase-finalizing", "Finalizando e salvando cache...")
+      case "done":
+        return t("luducard-scan-phase-done", "Varredura concluída!")
+      default:
+        return t("luducard-scan-phase-starting", "Iniciando varredura...")
     }
-  };
+  }
 
   async function startScan() {
-    setScanning(true)
-    setProgress(5)
-    // Logarithmic decay progress curve: starts relatively fast, then slows down
-    // approaching 99% asymptotically, ensuring the bar keeps moving without freezing.
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        const remaining = 99 - prev;
-        const increment = Math.max(0.1, remaining * 0.06);
-        return Math.min(prev + increment, 99);
-      })
-    }, 500)
+    setScanError(false)
     try {
       await scanGames()
-      clearInterval(progressInterval)
-      setProgress(100)
-      setHasResults(true)
       toast.success(t("luducard-scan-completed", "Varredura concluída"), {
         description: t("luducard-scan-completed-desc", "Detecção de alterações finalizada."),
       })
     } catch (err) {
-      clearInterval(progressInterval)
+      setScanError(true)
       toast.error(t("luducard-scan-error", "Erro ao realizar varredura."))
-    } finally {
-      setScanning(false)
     }
   }
 
@@ -400,11 +392,24 @@ export function ScanClient() {
             </p>
           </div>
           {scanning ? (
-            <div className="flex w-full max-w-sm flex-col gap-2">
-              <Progress value={progress} />
-              <span className="text-xs text-muted-foreground">
-                {getScanStatusText(progress)} {Math.round(progress)}%
-              </span>
+            <div className="flex w-full max-w-sm flex-col gap-3">
+              <Progress value={scanProgress.progress} />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground">
+                  {getScanStatusText(scanProgress.phase)} {Math.round(scanProgress.progress)}%
+                </span>
+                {scanProgress.gamesFound > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Gamepad2 className="size-3.5" />
+                    {scanProgress.gamesFound} {t("luducard-games-found", "jogo(s) encontrado(s)")}
+                  </span>
+                )}
+                {scanProgress.currentGame && (
+                  <span className="truncate text-xs text-muted-foreground/70 max-w-xs">
+                    ▸ {scanProgress.currentGame}
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <Button size="lg" onClick={startScan}>

@@ -18,6 +18,11 @@ export default function GameDetail() {
   const isTauri = checkIsTauri()
   const { t } = useI18n()
 
+  // Scroll to top on page mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Find game from already-loaded library context (instant)
   const gameFromContext = useMemo(() => games.find(g => g.id === id), [games, id])
 

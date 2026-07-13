@@ -635,3 +635,25 @@ luducard-notification-toast-sounds-enabled = Звуки включены
 luducard-notification-toast-sounds-disabled = Звуки отключены
 
 
+luducard-cloud-details-title = Детали аккаунта
+luducard-cloud-email = Email аккаунта:
+luducard-cloud-destination = Целевая папка:
+luducard-cloud-engine = Движок резервного копирования:
+luducard-cloud-path = Путь к файлу:
+luducard-cloud-rules-title = Правила синхронизации
+luducard-cloud-upload-auto = Автозагрузка
+luducard-cloud-upload-auto-desc = Загружать сохранения сразу после создания локальной копии.
+luducard-cloud-download-latest = Скачать последнее
+luducard-cloud-download-latest-desc = Отдавать приоритет более новым файлам в облаке.
+luducard-cloud-toast-upload-enabled = Автозагрузка включена
+luducard-cloud-toast-upload-disabled = Автозагрузка выключена
+luducard-cloud-toast-download-enabled = Автоскачивание включено
+luducard-cloud-toast-download-disabled = Автоскачивание выключено
+luducard-support-dest = Распределение ресурсов
+luducard-danger-zone = Опасная зона
+luducard-danger-zone-desc = Деструктивные действия, которые нельзя отменить.
+luducard-reset-warning-title = ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ:
+luducard-reset-warning-desc = Это навсегда сотрет все ваши настройки, пути поиска, облачные учетные данные и профили сохранений. Исходные папки на диске удалены не будут.
+luducard-btn-reset-app = Очистить все данные
+luducard-btn-reset-confirm = Да, подтвердить удаление
+luducard-btn-reset-cancel = Отмена

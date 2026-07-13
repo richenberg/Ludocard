@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils"
 import { type Game, type BackupKind, formatSize } from "@/lib/mock-data"
 import { cleanGameTitle } from "@/components/dashboard/library-client"
 import { ConflictResolutionModal } from "../cloud/conflict-resolution-modal"
+import { useLibrary } from "@/lib/library-context"
 
 interface TagInfo {
   name: string
@@ -110,6 +111,7 @@ interface GameDetailClientProps {
 
 export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   const { t } = useI18n()
+  const { updateGameNotes } = useLibrary()
   // Tabs & safety backup check
   const [activeTab, setActiveTab] = useState<"saves" | "presets" | "profiles">("saves")
   const [hasCrashSafetyBackup, setHasCrashSafetyBackup] = useState(false)
@@ -122,7 +124,7 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
 
   useEffect(() => {
     setLocalNotes(game.notes || "")
-  }, [game])
+  }, [game.id])
 
   const saveNotes = async () => {
     if (localNotes === (game.notes || "")) return;
@@ -130,13 +132,12 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
-        game.notes = localNotes;
       } catch (err) {
         toast.error(`Falha ao salvar anotação: ${err}`);
+        return;
       }
-    } else {
-      game.notes = localNotes;
     }
+    updateGameNotes(game.id, localNotes);
   };
 
   // Save Profiles states
@@ -215,6 +216,47 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
   function copyPath() {
     navigator.clipboard?.writeText(game.savePath)
     toast.success("Caminho copiado")
+  }
+
+  const handleChangeSavePath = async () => {
+    if (!isTauri) {
+      toast.info("[Mock] Selecionando nova pasta de save...");
+      return;
+    }
+    try {
+      const { invoke } = await import("@tauri-apps/api/core")
+      const selected = await invoke<string | null>("select_folder")
+      if (selected) {
+        const id = toast.loading(`Alterando caminho do save de "${game.title}"...`)
+        await invoke("update_game_save_path", {
+          gameTitle: game.title,
+          savePath: selected,
+        })
+        toast.success("Caminho do save atualizado com sucesso!", { id })
+        if (onRefresh) onRefresh()
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error(`Erro ao alterar caminho: ${err}`)
+    }
+  }
+
+  const handleResetSavePath = async () => {
+    if (!confirm(t("luducard-confirm-reset-save-path", "Deseja realmente resetar o caminho de save deste jogo para o padrão do manifest?"))) {
+      return
+    }
+    const id = toast.loading(`Restaurando caminho padrão de "${game.title}"...`)
+    try {
+      const { invoke } = await import("@tauri-apps/api/core")
+      await invoke("reset_game_save_path", {
+        gameTitle: game.title,
+      })
+      toast.success("Caminho padrão restaurado com sucesso!", { id })
+      if (onRefresh) onRefresh()
+    } catch (err) {
+      console.error(err)
+      toast.error(`Erro ao restaurar caminho: ${err}`, { id })
+    }
   }
 
   const handleBackup = async () => {
@@ -1100,14 +1142,43 @@ export function GameDetailClient({ game, onRefresh }: GameDetailClientProps) {
             <h2 className="text-balance text-2xl font-bold leading-tight sm:text-3xl">
               {cleanGameTitle(game.title)}
             </h2>
-            <button
-              onClick={copyPath}
-              className="group flex w-fit max-w-full items-center gap-2 rounded-md border border-border bg-background/60 px-2.5 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <FolderOpen className="size-3.5 shrink-0 text-primary" />
-              <span className="truncate">{game.savePath}</span>
-              <Copy className="size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
+            <div className="flex flex-wrap items-center gap-2 max-w-full">
+              <button
+                onClick={copyPath}
+                className="group flex w-fit max-w-[550px] items-center gap-2 rounded-md border border-border bg-background/60 px-2.5 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                title={game.savePath || t("luducard-no-save-path", "Caminho não configurado")}
+              >
+                <FolderOpen className="size-3.5 shrink-0 text-primary" />
+                <span className="truncate">{game.savePath || t("luducard-no-save-path", "Caminho não configurado")}</span>
+                <Copy className="size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+              
+              {isTauri && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={handleChangeSavePath}
+                    title={t("luducard-change-save-path-btn", "Alterar caminho do save")}
+                    className="h-8 w-8 px-0"
+                  >
+                    <SlidersHorizontal className="size-3.5" />
+                  </Button>
+                  
+                  {game.isCustom && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={handleResetSavePath}
+                      title={t("luducard-reset-save-path-btn", "Resetar para o caminho padrão")}
+                      className="h-8 w-8 px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <RotateCcw className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleBackup}>
                 <ArrowUpToLine data-icon="inline-start" />

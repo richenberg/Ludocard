@@ -635,3 +635,25 @@ luducard-notification-toast-sounds-enabled = Sonidos de alerta activados
 luducard-notification-toast-sounds-disabled = Sonidos de alerta desactivados
 
 
+luducard-cloud-details-title = Detalles de la cuenta
+luducard-cloud-email = Correo de la cuenta:
+luducard-cloud-destination = Carpeta de destino:
+luducard-cloud-engine = Motor de copia de seguridad:
+luducard-cloud-path = Ruta del ejecutable:
+luducard-cloud-rules-title = Reglas de sincronización
+luducard-cloud-upload-auto = Subida automática
+luducard-cloud-upload-auto-desc = Subir partidas tan pronto como se genere la copia local.
+luducard-cloud-download-latest = Descargar más reciente
+luducard-cloud-download-latest-desc = Dar prioridad a los archivos más nuevos en la nube.
+luducard-cloud-toast-upload-enabled = Subida automática activada
+luducard-cloud-toast-upload-disabled = Subida automática desactivada
+luducard-cloud-toast-download-enabled = Descarga automática activada
+luducard-cloud-toast-download-disabled = Descarga automática desactivada
+luducard-support-dest = Destino de los recursos
+luducard-danger-zone = Zona de peligro
+luducard-danger-zone-desc = Acciones destructivas que no se pueden deshacer.
+luducard-reset-warning-title = ADVERTENCIA IMPORTANTE:
+luducard-reset-warning-desc = Esto borrará permanentemente todos tus ajustes, rutas de búsqueda, credenciales en la nube y perfiles de guardado. Las carpetas originales de copia en disco no se borrarán.
+luducard-btn-reset-app = Limpiar todos los datos
+luducard-btn-reset-confirm = Sí, confirmar eliminación
+luducard-btn-reset-cancel = Cancelar

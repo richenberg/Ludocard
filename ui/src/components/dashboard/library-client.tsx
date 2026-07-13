@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import {
@@ -8,6 +8,7 @@ import {
   ArrowUpToLine,
   ArrowDownToLine,
   ArrowUpDown,
+  ArrowUp,
   Cloud,
   CloudOff,
   AlertTriangle,
@@ -85,6 +86,7 @@ interface GameCardProps {
   onSelectedChange: (selected: boolean) => void
   onBackup: (title: string) => void
   onRestore: (title: string) => void
+  onNotesChange?: (gameId: string, notes: string) => void
   showNotes?: boolean
 }
 
@@ -92,7 +94,7 @@ export function cleanGameTitle(title: string): string {
   return title.replace(/^\[(Yuzu|Ryujinx|Dolphin|RetroArch|mGBA|Citra|PCSX2|PPSSPP|Cemu)\]\s+/, "");
 }
 
-function GameCard({ game, selected, onSelectedChange, onBackup, onRestore, showNotes = true }: GameCardProps) {
+function GameCard({ game, selected, onSelectedChange, onBackup, onRestore, onNotesChange, showNotes = true }: GameCardProps) {
   const { t } = useI18n()
   const status = statusConfig[game.status]
   const cleanTitle = cleanGameTitle(game.title)
@@ -116,13 +118,12 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore, showN
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
-        game.notes = localNotes;
       } catch (err) {
         toast.error(`Falha ao salvar anotação: ${err}`);
+        return;
       }
-    } else {
-      game.notes = localNotes;
     }
+    if (onNotesChange) onNotesChange(game.id, localNotes);
   };
 
   return (
@@ -204,7 +205,7 @@ function GameCard({ game, selected, onSelectedChange, onBackup, onRestore, showN
   )
 }
 
-function GameRow({ game, selected, onSelectedChange, onBackup, onRestore, showNotes = true }: GameCardProps) {
+function GameRow({ game, selected, onSelectedChange, onBackup, onRestore, onNotesChange, showNotes = true }: GameCardProps) {
   const { t } = useI18n()
   const status = statusConfig[game.status]
   const cleanTitle = cleanGameTitle(game.title)
@@ -228,13 +229,12 @@ function GameRow({ game, selected, onSelectedChange, onBackup, onRestore, showNo
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("save_campaign_note", { gameId: game.id, note: localNotes });
-        game.notes = localNotes;
       } catch (err) {
         toast.error(`Falha ao salvar anotação: ${err}`);
+        return;
       }
-    } else {
-      game.notes = localNotes;
     }
+    if (onNotesChange) onNotesChange(game.id, localNotes);
   };
 
   return (
@@ -308,7 +308,7 @@ interface LibraryClientProps {
 
 export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
   const { t } = useI18n()
-  const { games, loading, loadGames, stats } = useLibrary()
+  const { games, loading, loadGames, stats, scrollPositionRef, updateGameNotes } = useLibrary()
   const showNotes = localStorage.getItem("luducard_show_notes_in_library") !== "false"
   const [view, setView] = useState<"grid" | "list">("grid")
   const [query, setQuery] = useState("")
@@ -316,9 +316,38 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
   const [onlyPending, setOnlyPending] = useState(false)
   const [onlyInstalled, setOnlyInstalled] = useState(false)
   const [sortBy, setSortBy] = useState<"name" | "recent" | "size">("name")
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
+
+  // Scroll position restore (runs when loading finishes, synchronously before paint)
+  useLayoutEffect(() => {
+    if (scrollPositionRef.current > 0 && !loading) {
+      window.scrollTo(0, scrollPositionRef.current);
+    }
+  }, [loading, scrollPositionRef]);
+
+  // Back-to-top button visibility + scroll position tracking
+  useEffect(() => {
+    const handleScroll = () => {
+      scrollPositionRef.current = window.scrollY;
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Only update button visibility on mount, do NOT overwrite scrollPositionRef here
+    setShowScrollTop(window.scrollY > 300);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scrollPositionRef]);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Wrapper to save notes and update context immediately
+  const handleSaveNotes = useCallback((gameId: string, notes: string) => {
+    updateGameNotes(gameId, notes);
+  }, [updateGameNotes]);
 
   const handleBackup = async (title: string) => {
     if (isTauri) {
@@ -610,6 +639,7 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
               onSelectedChange={(s) => setSelected((prev) => ({ ...prev, [game.id]: s }))}
               onBackup={handleBackup}
               onRestore={handleRestore}
+              onNotesChange={handleSaveNotes}
               showNotes={showNotes}
             />
           ))}
@@ -624,6 +654,7 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
               onSelectedChange={(s) => setSelected((prev) => ({ ...prev, [game.id]: s }))}
               onBackup={handleBackup}
               onRestore={handleRestore}
+              onNotesChange={handleSaveNotes}
               showNotes={showNotes}
             />
           ))}
@@ -638,6 +669,19 @@ export function LibraryClient({ selected, setSelected }: LibraryClientProps) {
         conflict={conflictInfo}
         onResolve={handleResolveConflict}
       />
+
+      {/* Back to Top FAB */}
+      <button
+        onClick={scrollToTop}
+        className={cn(
+          "fixed bottom-6 right-6 z-50 flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:bg-primary/90 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary/50",
+          showScrollTop ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+        title={t("luducard-back-to-top", "Voltar ao topo")}
+        aria-label={t("luducard-back-to-top", "Voltar ao topo")}
+      >
+        <ArrowUp className="size-5" />
+      </button>
     </div>
   )
 }

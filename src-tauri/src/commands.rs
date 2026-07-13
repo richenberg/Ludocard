@@ -50,6 +50,8 @@ pub struct FrontendGame {
     pub last_played: Option<String>,
     pub emulator: Option<String>,
     pub notes: Option<String>,
+    #[serde(rename = "isCustom")]
+    pub is_custom: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -951,6 +953,8 @@ fn build_frontend_game(
 
     let notes = luducard_json.and_then(|json| json.get("campaign_notes")?.get(&slug)?.as_str().map(|s| s.to_string()));
 
+    let is_custom = api.config.custom_games.iter().any(|g| g.name == name);
+
     FrontendGame {
         id: slug,
         title: display_title,
@@ -969,6 +973,7 @@ fn build_frontend_game(
         last_played,
         emulator,
         notes,
+        is_custom,
     }
 }
 
@@ -1064,6 +1069,22 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
         let _ = crate::emulator::heal_custom_game_paths();
         let app_data_dir = app.path().app_data_dir().ok();
 
+        // Helper to emit scan progress events to the frontend
+        let emit_progress =
+            |app: &tauri::AppHandle, phase: &str, progress: u32, games_found: usize, current_game: &str| {
+                let _ = app.emit(
+                    "scan-progress",
+                    serde_json::json!({
+                        "phase": phase,
+                        "progress": progress,
+                        "gamesFound": games_found,
+                        "currentGame": current_game,
+                    }),
+                );
+            };
+
+        emit_progress(&app, "scanning-emulators", 5, 0, "");
+
         // 1. Scan and register emulator saves first
         if let Some(ref dir) = app_data_dir {
             let emulators = load_emulators_setting(dir);
@@ -1074,10 +1095,17 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
                     all_saves.extend(detected);
                 }
             }
+
+            // Auto-detect Goldberg Steam Emulator saves
+            let gse_saves = crate::emulator::scan_gse_saves();
+            all_saves.extend(gse_saves);
+
             if !all_saves.is_empty() {
                 let _ = crate::emulator::register_emulator_saves(all_saves);
             }
         }
+
+        emit_progress(&app, "scanning-saves", 15, 0, "");
 
         let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
@@ -1099,6 +1127,8 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
             .map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
 
         let app_data_dir = app.path().app_data_dir().ok();
+
+        emit_progress(&app, "processing-results", 60, 0, "");
 
         // Update the scan cache with live data
         {
@@ -1146,7 +1176,11 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
         let mut frontend_games = Vec::new();
         let mut games_to_download = Vec::new();
 
-        for name in &all_names {
+        let total_names = all_names.len();
+        for (i, name) in all_names.iter().enumerate() {
+            // Emit progress for each game being processed (60% to 90% range)
+            let game_progress = 60 + ((i as u32 * 30) / std::cmp::max(total_names as u32, 1));
+            emit_progress(&app, "game-found", game_progress, i + 1, name);
             let scan_game = scan_output.games.get(name);
             let backup_game = backups_output.games.get(name);
             let cached_scan = cache.get(name);
@@ -1179,12 +1213,23 @@ pub async fn scan_games(app: tauri::AppHandle) -> Result<Vec<FrontendGame>, Stri
             frontend_games.push(fg);
         }
 
+        emit_progress(&app, "finalizing", 92, frontend_games.len(), "");
+
         if !games_to_download.is_empty() {
             start_cover_downloads(&app, games_to_download);
         }
 
         // Reload the file watcher after a full scan so it picks up new/changed save paths
         crate::watcher::start_file_watcher(&app);
+
+        let total_found = frontend_games.len();
+        emit_progress(&app, "done", 100, total_found, "");
+
+        // Show a native Windows notification when scan is complete
+        crate::watcher::show_notification(
+            "Varredura concluída",
+            &format!("{} jogo(s) encontrado(s) na biblioteca.", total_found),
+        );
 
         Ok(frontend_games)
     })
@@ -4615,6 +4660,55 @@ pub async fn clear_app_data(app: tauri::AppHandle) -> Result<(), String> {
             });
         }
 
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn update_game_save_path(game_title: String, save_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+
+        let normalized_path = save_path.replace('\\', "/");
+        let target_path = if normalized_path.contains('*') {
+            normalized_path
+        } else {
+            let path_buf = std::path::Path::new(&normalized_path);
+            if path_buf.is_file() {
+                normalized_path
+            } else {
+                format!("{}/**/*", normalized_path.trim_end_matches('/'))
+            }
+        };
+
+        if let Some(pos) = api.config.custom_games.iter().position(|g| g.name == game_title) {
+            api.config.custom_games[pos].files = vec![target_path];
+        } else {
+            let custom_game = ludusavi::resource::config::CustomGame {
+                name: game_title,
+                ignore: false,
+                files: vec![target_path],
+                expanded: true,
+                ..Default::default()
+            };
+            api.config.custom_games.push(custom_game);
+        }
+
+        api.config.save();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn reset_game_save_path(game_title: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let mut api = Ludusavi::load().map_err(|e| ludusavi::lang::TRANSLATOR.handle_error(&e))?;
+        api.config.custom_games.retain(|g| g.name != game_title);
+        api.config.save();
         Ok(())
     })
     .await

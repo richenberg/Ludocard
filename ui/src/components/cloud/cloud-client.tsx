@@ -385,12 +385,14 @@ export function CloudClient() {
                   "text-base font-semibold",
                   cloudSync ? "text-emerald-400" : "text-amber-400"
                 )}>
-                  {cloudSync ? "Sincronização em Nuvem Ativa e Saudável" : "Sincronização em Nuvem Pausada"}
+                  {cloudSync
+                    ? t("luducard-cloud-active", "Sincronização em Nuvem Ativa e Saudável")
+                    : t("luducard-cloud-paused", "Sincronização em Nuvem Pausada")}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {cloudSync
-                    ? "Seus backups locais serão enviados e sincronizados automaticamente na nuvem."
-                    : "O envio para a nuvem está pausado. Ative para sincronizar seus saves."}
+                    ? t("luducard-cloud-active-desc", "Seus backups locais serão enviados e sincronizados automaticamente na nuvem.")
+                    : t("luducard-cloud-paused-desc", "O envio para a nuvem está pausado. Ative para sincronizar seus saves.")}
                 </span>
               </div>
             </div>
@@ -398,7 +400,7 @@ export function CloudClient() {
               <Switch checked={cloudSync} onCheckedChange={handleEnableGlobalSync} />
               <Button variant="destructive" size="sm" onClick={handleUnlink}>
                 <Unlink className="size-4 mr-2" />
-                Desconectar Conta
+                {t("luducard-cloud-disconnect", "Desconectar Conta")}
               </Button>
             </div>
           </CardContent>
@@ -413,30 +415,30 @@ export function CloudClient() {
             <CardHeader>
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Cloud className="size-4 text-primary" />
-                Detalhes da Conta
+                {t("luducard-cloud-details-title", "Detalhes da Conta")}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-left text-sm">
               <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">Provedor Conectado:</span>
+                <span className="text-muted-foreground">{t("luducard-cloud-provider", "Provedor Conectado:")}</span>
                 <span className="font-medium text-foreground">{activeProvider}</span>
               </div>
               {cloudEmail && (
                 <div className="flex justify-between py-1.5 border-b border-border/40">
-                  <span className="text-muted-foreground">E-mail da Conta:</span>
+                  <span className="text-muted-foreground">{t("luducard-cloud-email", "E-mail da Conta:")}</span>
                   <span className="font-medium text-foreground">{cloudEmail}</span>
                 </div>
               )}
               <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">Pasta de Destino:</span>
+                <span className="text-muted-foreground">{t("luducard-cloud-destination", "Pasta de Destino:")}</span>
                 <span className="font-mono text-xs">{cloudPath}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">Motor do Backup:</span>
+                <span className="text-muted-foreground">{t("luducard-cloud-engine", "Motor do Backup:")}</span>
                 <span className="font-medium text-foreground">Rclone</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-muted-foreground">Caminho Executável:</span>
+                <span className="text-muted-foreground">{t("luducard-cloud-path", "Caminho Executável:")}</span>
                 <span className="font-mono text-xs max-w-[200px] truncate" title={rclonePath}>{rclonePath}</span>
               </div>
             </CardContent>
@@ -447,29 +449,29 @@ export function CloudClient() {
             <CardHeader>
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Sparkles className="size-4 text-primary" />
-                Regras de Sincronização
+                {t("luducard-cloud-rules-title", "Regras de Sincronização")}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-0.5 text-left">
-                  <span className="text-xs font-semibold">Upload Automático</span>
-                  <span className="text-[10px] text-muted-foreground">Upar saves assim que o backup local for gerado.</span>
+                  <span className="text-xs font-semibold">{t("luducard-cloud-upload-auto", "Upload Automático")}</span>
+                  <span className="text-[10px] text-muted-foreground">{t("luducard-cloud-upload-auto-desc", "Upar saves assim que o backup local for gerado.")}</span>
                 </div>
                 <Switch checked={autoUpload} onCheckedChange={(c) => {
                   setAutoUpload(c)
-                  toast.success(c ? "Upload automático ativado" : "Upload automático desativado")
+                  toast.success(c ? t("luducard-cloud-toast-upload-enabled", "Upload automático ativado") : t("luducard-cloud-toast-upload-disabled", "Upload automático desativado"))
                 }} />
               </div>
               <Separator className="bg-border/40" />
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-0.5 text-left">
-                  <span className="text-xs font-semibold">Baixar mais Recente</span>
-                  <span className="text-[10px] text-muted-foreground">Dar prioridade aos arquivos mais novos na nuvem.</span>
+                  <span className="text-xs font-semibold">{t("luducard-cloud-download-latest", "Baixar mais Recente")}</span>
+                  <span className="text-[10px] text-muted-foreground">{t("luducard-cloud-download-latest-desc", "Dar prioridade aos arquivos mais novos na nuvem.")}</span>
                 </div>
                 <Switch checked={autoDownload} onCheckedChange={(c) => {
                   setAutoDownload(c)
-                  toast.success(c ? "Download automático ativado" : "Download automático desativado")
+                  toast.success(c ? t("luducard-cloud-toast-download-enabled", "Download automático ativado") : t("luducard-cloud-toast-download-disabled", "Download automático desativado"))
                 }} />
               </div>
             </CardContent>
@@ -668,7 +670,7 @@ export function CloudClient() {
                 <div className="flex gap-2">
                   <Button variant="destructive" size="sm" onClick={handleUnlink}>
                     <Unlink className="size-4 mr-1.5" />
-                    Desconectar
+                    {t("luducard-cloud-disconnect-btn", "Desconectar")}
                   </Button>
                   <Button size="sm" onClick={() => setCurrentStep(3)}>
                     Avançar

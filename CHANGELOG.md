@@ -4,6 +4,22 @@ All notable changes to the **Luducard** project will be documented in this file.
 
 This project is a new application based on the core of Ludosavi. The change history of Luducard starts with this release.
 
+## [0.2.1] - 2026-07-13
+### Added
+- **Goldberg Emulator (GSE) Autodetection**: Implemented automatic scanning and mapping of Goldberg Steam Emulator (GSE) saves under `%APPDATA%\GSE Saves\<AppId>\` to official PC game entries.
+- **Custom Game Save Path Overrides**: Added OS system file picker and reset buttons on the game detail screen to allow manual override of game save paths.
+- **Back to Top Button**: Added a smooth-scrolling floating button in the games library when scrolling down.
+- **Tauri Background Scan Notification**: Added native OS notifications when background library scans complete, displaying the number of found games.
+
+### Fixed
+- **Library Scan Progress**: Switched from fake timer progress to real-time backend progress events, fixing the "99% slider lock" issue.
+- **Scan Reset on Tab Switch**: Moved scan progress state to the global `LibraryContext` to prevent scans from resetting when switching dashboard tabs.
+- **Scroll Restoration and Viewport Reset**: Fixed scroll inheritance by forcing pages to start at the top on mount, and correctly restoring scroll position in the library after elements are loaded in the DOM.
+- **Diário de Bordo Sincronização & Race Condition**: Fixed delay by updating context notes on save, and prevented text deletion by decoupling textarea resets from background updates.
+- **Save Path Box Formatting**: Set a 550px max width for the save path display with truncation and full path shown on hover.
+- **Fixed translations**: Fixed translations not updating in some cases.
+
+
 ## [0.2.0] - 2026-07-08
 ### Fixed
 - **Notes I/O Performance**: Optimized campaign and backup notes loading by reading and parsing `luducard.json` once per API call, significantly improving the loading speed of game lists and scans.

@@ -621,17 +621,23 @@ pub fn scan_emulator_saves(emulator_name: &str, path_str: &str, app_data_dir: Op
 pub fn register_emulator_saves(detected: Vec<DetectedSave>) -> Result<(), String> {
     let mut api = Ludusavi::load().map_err(|e| format!("{:?}", e))?;
 
-    // Prune obsolete or unmapped emulator games for the scanned emulators
+    // Prune obsolete or unmapped emulator games for the scanned emulators (excluding GSE)
     let emulators_in_scan: std::collections::HashSet<String> =
         detected.iter().map(|s| s.emulator_name.clone()).collect();
     let detected_names: std::collections::HashSet<String> = detected
         .iter()
-        .map(|s| format!("[{}] {}", s.emulator_name, s.game_title))
+        .map(|s| {
+            if s.emulator_name == "GSE" {
+                s.game_title.clone()
+            } else {
+                format!("[{}] {}", s.emulator_name, s.game_title)
+            }
+        })
         .collect();
     api.config.custom_games.retain(|g| {
         let is_scanned_emulator = emulators_in_scan
             .iter()
-            .any(|emu| g.name.starts_with(&format!("[{}] ", emu)));
+            .any(|emu| emu != "GSE" && g.name.starts_with(&format!("[{}] ", emu)));
         if is_scanned_emulator {
             detected_names.contains(&g.name)
         } else {
@@ -640,7 +646,11 @@ pub fn register_emulator_saves(detected: Vec<DetectedSave>) -> Result<(), String
     });
 
     for save in detected {
-        let custom_game_name = format!("[{}] {}", save.emulator_name, save.game_title);
+        let custom_game_name = if save.emulator_name == "GSE" {
+            save.game_title.clone()
+        } else {
+            format!("[{}] {}", save.emulator_name, save.game_title)
+        };
 
         let target_path = if save.save_path.contains('*') {
             save.save_path.clone()
@@ -681,6 +691,55 @@ pub fn register_emulator_saves(detected: Vec<DetectedSave>) -> Result<(), String
 
     api.config.save();
     Ok(())
+}
+
+/// Automatically scans %APPDATA%/GSE Saves for Goldberg Steam Emulator saves
+pub fn scan_gse_saves() -> Vec<DetectedSave> {
+    let mut saves = Vec::new();
+
+    let Ok(api) = Ludusavi::load() else {
+        return saves;
+    };
+
+    let Some(config_dir) = dirs::config_dir() else {
+        return saves;
+    };
+
+    let gse_dir = config_dir.join("GSE Saves");
+    if !gse_dir.exists() {
+        return saves;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(&gse_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Some(name_str) = path.file_name().and_then(|n| n.to_str()) {
+                    if let Ok(app_id) = name_str.parse::<u32>() {
+                        // Cruza o App ID com o manifest do Ludusavi para tentar achar o nome oficial do jogo
+                        let mut game_title = None;
+                        for (manifest_game, meta) in &api.manifest.0 {
+                            if meta.steam.id == Some(app_id) {
+                                game_title = Some(manifest_game.clone());
+                                break;
+                            }
+                        }
+
+                        // Se o jogo for detectado no manifest, registra o save na pasta do Goldberg
+                        if let Some(title) = game_title {
+                            saves.push(DetectedSave {
+                                game_title: title,
+                                save_path: path.to_string_lossy().to_string().replace('\\', "/"),
+                                emulator_name: "GSE".to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    saves
 }
 
 /// Automatically repairs any registered custom game directories by appending wildcards

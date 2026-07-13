@@ -626,3 +626,24 @@ luducard-notification-toast-sounds-enabled = 音效已开启
 luducard-notification-toast-sounds-disabled = 音效已关闭
 
 
+luducard-cloud-details-title = 账户详情
+luducard-cloud-email = 账户邮箱:
+luducard-cloud-destination = 目标文件夹:
+luducard-cloud-engine = 备份引擎:
+luducard-cloud-path = 可执行文件路径:
+luducard-cloud-rules-title = 同步规则
+luducard-cloud-upload-auto = 自动上传
+luducard-cloud-upload-auto-desc = 本地备份生成后立即上传存档。
+luducard-cloud-download-latest = 下载最新版本
+luducard-cloud-download-latest-desc = 优先考虑云端较新的文件。
+luducard-cloud-toast-upload-enabled = 自动上传已启用
+luducard-cloud-toast-upload-disabled = 自动上传已禁用
+luducard-cloud-toast-download-enabled = 自动下载已启用
+luducard-cloud-toast-download-disabled = 自动下载已禁用
+luducard-danger-zone = 危险区域
+luducard-danger-zone-desc = 无法撤销的破坏性操作。
+luducard-reset-warning-title = 重要警告:
+luducard-reset-warning-desc = 这将永久擦除所有设置、自定义搜索路径、游戏扫描历史记录、云凭据和保存配置文件。磁盘上的原始备份文件夹不会被删除。
+luducard-btn-reset-app = 清除所有数据
+luducard-btn-reset-confirm = 是的，确认删除
+luducard-btn-reset-cancel = 取消
